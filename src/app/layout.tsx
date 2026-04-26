@@ -1,32 +1,52 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import Sidebar from "@/components/Sidebar";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
+const cairo = Cairo({
+  subsets: ["arabic", "latin"],
+  variable: "--font-cairo",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+});
 
 export const metadata: Metadata = {
-  title: "منظومة التوزيع الذكي | إدارة العمرانية",
-  description: "نظام مستقل لتوزيع الموجهين باستخدام الذكاء الاصطناعي",
+  title: "منظومة التوزيع الذكي | إدارة العمرانية التعليمية",
+  description: "نظام متكامل لتوزيع الموجهين المقيمين على لجان الامتحانات - إدارة العمرانية التعليمية - محافظة الجيزة",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="ar" dir="rtl" className={`${inter.variable} ${outfit.variable}`}>
-      <body className="bg-[#0f172a] text-slate-200 min-h-screen selection:bg-cyan-500/30">
-        <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-black"></div>
-        <div className="fixed inset-0 -z-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
-        
-        <main className="relative z-10">
+    <html lang="ar" dir="rtl">
+      <body className={cairo.variable}>
+        <Sidebar />
+        <main className="main-content">
           {children}
         </main>
-        
-        <Toaster position="top-center" reverseOrder={false} />
+        <Toaster
+          position="bottom-left"
+          toastOptions={{
+            style: {
+              background: '#0d1526',
+              color: '#f1f5f9',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: '14px',
+              direction: 'rtl',
+            },
+            success: {
+              iconTheme: { primary: '#34d399', secondary: '#0d1526' },
+            },
+            error: {
+              iconTheme: { primary: '#f87171', secondary: '#0d1526' },
+            },
+          }}
+        />
       </body>
     </html>
   );

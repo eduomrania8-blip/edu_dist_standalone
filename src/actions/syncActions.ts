@@ -2,12 +2,16 @@
 
 import { supabase } from '@/lib/supabase';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwy8C1vCejq2UoRnSE-WZMiwpDJTHE9-E9qMu4011xsJLUraHtOQs4j5hvnONZp7Sc3Pw/exec';
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL;
 
 export async function syncDataFromGoogleSheets() {
+  if (!GAS_URL) {
+    return { success: false, message: 'رابط مزامنة Google Sheets غير مهيأ (NEXT_PUBLIC_GAS_URL)' };
+  }
+
   try {
     const response = await fetch(GAS_URL);
-    if (!response.ok) throw new Error('Failed to fetch data from Google Sheets');
+    if (!response.ok) throw new Error('فشل في جلب البيانات من Google Sheets');
     
     const data = await response.json();
     // Expected structure: { schools: [...], supervisors: [...], guidance: [...] }

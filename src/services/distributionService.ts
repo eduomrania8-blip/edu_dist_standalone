@@ -1,47 +1,298 @@
+// =============================================================================
+// Enterprise Distribution Service — Full CRUD + Business Logic
+// =============================================================================
+
 import { supabase } from '@/lib/supabase';
-import { School, Supervisor, SupervisorWish, DistributionResult } from '@/types/database';
+import {
+  School, Supervisor, SupervisorWish, DistributionRun,
+  DistributionResult, DistributionSetting,
+  SchoolFormData, SupervisorFormData, WishFormData,
+  AssignmentPayload, AlgorithmParams, DistributionStats,
+} from '@/types/database';
+
+// ────────────────────────────────────────────────────────────
+// SCHOOLS
+// ────────────────────────────────────────────────────────────
 
 export async function getAllSchools(): Promise<School[]> {
-  const { data, error } = await supabase.from('schools').select('*').eq('is_active', true);
+  const { data, error } = await supabase
+    .from('schools')
+    .select('*')
+    .eq('is_active', true)
+    .order('school_name');
   if (error) throw error;
-  return data || [];
+  return data ?? [];
 }
 
-export async function getAllSupervisors(): Promise<Supervisor[]> {
-  const { data, error } = await supabase.from('supervisors').select('*').eq('is_active', true);
+export async function createSchool(data: SchoolFormData): Promise<School> {
+  const { data: school, error } = await supabase
+    .from('schools')
+    .insert(data)
+    .select()
+    .single();
   if (error) throw error;
-  return data || [];
+  return school;
+}
+
+export async function updateSchool(id: string, data: Partial<SchoolFormData>): Promise<School> {
+  const { data: school, error } = await supabase
+    .from('schools')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return school;
+}
+
+export async function deleteSchool(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('schools')
+    .update({ is_active: false })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────────────────
+// SUPERVISORS
+// ────────────────────────────────────────────────────────────
+
+export async function getAllSupervisors(): Promise<Supervisor[]> {
+  const { data, error } = await supabase
+    .from('supervisors')
+    .select('*, home_school:schools(id, school_name, school_code)')
+    .eq('is_active', true)
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createSupervisor(data: SupervisorFormData): Promise<Supervisor> {
+  const { data: sup, error } = await supabase
+    .from('supervisors')
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return sup;
+}
+
+export async function updateSupervisor(id: string, data: Partial<SupervisorFormData>): Promise<Supervisor> {
+  const { data: sup, error } = await supabase
+    .from('supervisors')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return sup;
+}
+
+export async function deleteSupervisor(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('supervisors')
+    .update({ is_active: false })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────────────────
+// WISHES / PREFERENCES
+// ────────────────────────────────────────────────────────────
+
+export async function getAllWishes(): Promise<SupervisorWish[]> {
+  const { data, error } = await supabase
+    .from('supervisor_wishes')
+    .select(`
+      *,
+      supervisor:supervisors(id, name, specialty),
+      school_1:wish_1(id, school_name),
+      school_2:wish_2(id, school_name),
+      school_3:wish_3(id, school_name),
+      school_4:wish_4(id, school_name)
+    `);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function getSupervisorWishes(): Promise<SupervisorWish[]> {
-  const { data, error } = await supabase.from('supervisor_wishes').select('*');
+  const { data, error } = await supabase
+    .from('supervisor_wishes')
+    .select('*');
   if (error) throw error;
-  return data || [];
+  return data ?? [];
 }
 
-export async function saveDistributionResults(results: any[]) {
-  // Clear old results first (optional, depends on business rule)
-  const { error: deleteError } = await supabase.from('distribution_results').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  if (deleteError) throw deleteError;
-
-  const { error } = await supabase.from('distribution_results').insert(results);
+export async function upsertWish(data: WishFormData): Promise<void> {
+  const { error } = await supabase
+    .from('supervisor_wishes')
+    .upsert(data, { onConflict: 'supervisor_id' });
   if (error) throw error;
 }
 
-export async function getDistributionResults(): Promise<DistributionResult[]> {
+export async function deleteWish(supervisor_id: string): Promise<void> {
+  const { error } = await supabase
+    .from('supervisor_wishes')
+    .delete()
+    .eq('supervisor_id', supervisor_id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────────────────
+// DISTRIBUTION RUNS
+// ────────────────────────────────────────────────────────────
+
+export async function createDistributionRun(params: {
+  run_name: string;
+  academic_year: string;
+  algorithm_params: AlgorithmParams;
+}): Promise<DistributionRun> {
+  const { data, error } = await supabase
+    .from('distribution_runs')
+    .insert(params)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateRunStats(
+  runId: string,
+  stats: DistributionStats
+): Promise<void> {
+  const { error } = await supabase
+    .from('distribution_runs')
+    .update({
+      status: 'completed',
+      total_assigned: stats.total,
+      total_forced: stats.forced,
+      satisfaction_rate: stats.satisfaction_rate,
+    })
+    .eq('id', runId);
+  if (error) throw error;
+}
+
+export async function getAllRuns(): Promise<DistributionRun[]> {
+  const { data, error } = await supabase
+    .from('distribution_runs')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function deleteRun(id: string): Promise<void> {
+  // Results are cascade deleted
+  const { error } = await supabase
+    .from('distribution_runs')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────────────────
+// DISTRIBUTION RESULTS
+// ────────────────────────────────────────────────────────────
+
+export async function saveDistributionResults(
+  runId: string,
+  assignments: AssignmentPayload[]
+): Promise<void> {
+  const rows = assignments.map(a => ({
+    run_id: runId,
+    supervisor_id: a.supervisor_id,
+    assigned_school_id: a.assigned_school_id,
+    final_score: a.final_score,
+    rank_achieved: a.rank_achieved,
+    is_forced: a.is_forced,
+    score_breakdown: a.score_breakdown,
+    rejection_reasons: a.rejection_reasons,
+  }));
+
+  const { error } = await supabase
+    .from('distribution_results')
+    .insert(rows);
+  if (error) throw error;
+}
+
+export async function getResultsByRun(runId: string): Promise<DistributionResult[]> {
   const { data, error } = await supabase
     .from('distribution_results')
     .select(`
       *,
-      supervisor:supervisors(*),
-      school:schools(*)
-    `);
+      supervisor:supervisors(id, name, specialty, stage, school_type),
+      school:schools(id, school_name, school_code, stage, school_type)
+    `)
+    .eq('run_id', runId)
+    .order('final_score', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return data ?? [];
 }
 
-export async function getSettings() {
-  const { data, error } = await supabase.from('distribution_settings').select('*');
+export async function getLatestResults(): Promise<DistributionResult[]> {
+  // Get the most recent completed run
+  const { data: run } = await supabase
+    .from('distribution_runs')
+    .select('id')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!run) return [];
+  return getResultsByRun(run.id);
+}
+
+export async function updateResultSchool(
+  resultId: string,
+  newSchoolId: string,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('distribution_results')
+    .update({
+      assigned_school_id: newSchoolId,
+      is_manual_override: true,
+    })
+    .eq('id', resultId);
   if (error) throw error;
-  return data || [];
+
+  // Log the override
+  const { data: result } = await supabase
+    .from('distribution_results')
+    .select('run_id, assigned_school_id')
+    .eq('id', resultId)
+    .single();
+
+  if (result) {
+    await supabase.from('override_logs').insert({
+      run_id: result.run_id,
+      result_id: resultId,
+      new_school_id: newSchoolId,
+      override_reason: reason,
+    });
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// SETTINGS
+// ────────────────────────────────────────────────────────────
+
+export async function getSettings(): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('distribution_settings')
+    .select('setting_key, setting_value');
+  if (error) throw error;
+
+  const map: Record<string, string> = {};
+  (data ?? []).forEach(s => { map[s.setting_key] = s.setting_value; });
+  return map;
+}
+
+export async function updateSetting(key: string, value: string): Promise<void> {
+  const { error } = await supabase
+    .from('distribution_settings')
+    .update({ setting_value: value })
+    .eq('setting_key', key);
+  if (error) throw error;
 }

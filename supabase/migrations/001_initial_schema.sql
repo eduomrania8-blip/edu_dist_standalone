@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS schools (
     school_name TEXT NOT NULL,
     stage TEXT, -- ابتدائي، إعدادي، ثانوي
     school_type TEXT, -- عام، فني، تجريبي
+    needs_count INTEGER DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
