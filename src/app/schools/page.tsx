@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSchools, createSchool, updateSchool, deleteSchool,
+  getAllSchools, createSchool, updateSchool, deleteSchool, getAllSupervisors
 } from '@/services/distributionService';
 import {
-  School, SchoolFormData, STAGES, SCHOOL_TYPES, SPECIALIZATIONS,
+  School, SchoolFormData, STAGES, SCHOOL_TYPES, SPECIALIZATIONS, Supervisor
 } from '@/types/database';
 
 const EMPTY_FORM: SchoolFormData = {
@@ -18,11 +18,13 @@ const EMPTY_FORM: SchoolFormData = {
   specialization: '',
   needs_count: 1,
   address: '',
+  mandatory_supervisor_id: '',
   is_active: true,
 };
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -34,8 +36,9 @@ export default function SchoolsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAllSchools();
+      const [data, sups] = await Promise.all([getAllSchools(), getAllSupervisors()]);
       setSchools(data);
+      setSupervisors(sups);
     } catch (e: any) {
       toast.error('خطأ في تحميل البيانات: ' + e.message);
     } finally {
@@ -67,6 +70,7 @@ export default function SchoolsPage() {
       specialization: school.specialization ?? '',
       needs_count: school.needs_count ?? 1,
       address: school.address ?? '',
+      mandatory_supervisor_id: school.mandatory_supervisor_id ?? '',
       is_active: school.is_active,
     });
     setShowModal(true);
@@ -158,6 +162,7 @@ export default function SchoolsPage() {
                 <th>المرحلة</th>
                 <th>النوع</th>
                 <th>التخصص</th>
+                <th>الموجه الإجباري</th>
                 <th>الاحتياج</th>
                 <th>الإجراءات</th>
               </tr>
@@ -166,14 +171,14 @@ export default function SchoolsPage() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j}><div className="skeleton" style={{ height: 14, borderRadius: 4 }} /></td>
                     ))}
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 48, color: '#475569' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#475569' }}>
                     لا توجد مدارس مطابقة
                   </td>
                 </tr>
@@ -185,6 +190,15 @@ export default function SchoolsPage() {
                     <td><span className={`badge ${stageColor[school.stage] ?? 'badge-blue'}`}>{school.stage}</span></td>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>{school.school_type}</td>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>{school.specialization || '—'}</td>
+                    <td>
+                      {school.mandatory_supervisor_id ? (
+                        <span className="badge badge-purple">
+                          {supervisors.find(s => s.id === school.mandatory_supervisor_id)?.name || 'إجباري'}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#475569', fontSize: 13 }}>—</span>
+                      )}
+                    </td>
                     <td>
                       <span className="badge badge-green">{school.needs_count ?? 1} موجه</span>
                     </td>
@@ -264,6 +278,17 @@ export default function SchoolsPage() {
                 <label className="form-label">العنوان (اختياري)</label>
                 <input className="form-input" value={form.address}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">الموجه الإجباري (التكليف الإداري المسبق - اختياري)</label>
+                <select className="form-input" value={form.mandatory_supervisor_id || ''}
+                  onChange={e => setForm(f => ({ ...f, mandatory_supervisor_id: e.target.value || undefined }))}>
+                  <option value="">-- بدون موجه إجباري --</option>
+                  {supervisors.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.specialty})</option>
+                  ))}
+                </select>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b' }}>سيقوم النظام بتسكين هذا الموجه على هذه المدرسة فوراً وتخطي خوارزمية النقاط.</p>
               </div>
             </div>
 

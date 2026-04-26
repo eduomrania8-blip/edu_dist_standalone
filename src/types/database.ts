@@ -34,9 +34,12 @@ export interface School {
   specialization?: string;
   needs_count: number;
   address?: string;
+  mandatory_supervisor_id?: string;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  // Joined
+  mandatory_supervisor?: Supervisor;
 }
 
 export interface Supervisor {

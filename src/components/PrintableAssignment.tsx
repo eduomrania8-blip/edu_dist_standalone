@@ -1,17 +1,24 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Download, Printer } from 'lucide-react';
-import { DistributionResult } from '@/types/database';
+import { DistributionResult, DistributionStats } from '@/types/database';
 import { getRankLabel } from '@/lib/distributionAlgorithm';
+import { getSettings } from '@/services/distributionService';
 
 interface Props {
   results: DistributionResult[];
+  stats: DistributionStats;
   runName?: string;
 }
 
-export default function PrintableAssignment({ results, runName }: Props) {
+export default function PrintableAssignment({ results, stats, runName }: Props) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getSettings().then(setSettings).catch(console.error);
+  }, []);
 
   const handleDownloadPDF = async () => {
     if (typeof window === 'undefined') return;
@@ -155,10 +162,10 @@ export default function PrintableAssignment({ results, runName }: Props) {
         }}>
           {[
             { label: 'الإجمالي', value: stats.total },
-            { label: 'رغبة أولى', value: stats.byWish1 },
-            { label: 'رغبة ثانية', value: stats.byWish2 },
-            { label: 'رغبة ثالثة', value: stats.byWish3 },
-            { label: 'رغبة رابعة', value: stats.byWish4 },
+            { label: 'رغبة أولى', value: stats.by_wish_1 },
+            { label: 'رغبة ثانية', value: stats.by_wish_2 },
+            { label: 'رغبة ثالثة', value: stats.by_wish_3 },
+            { label: 'رغبة رابعة', value: stats.by_wish_4 },
             { label: 'اضطراري', value: stats.forced },
           ].map((s, i) => (
             <div key={i} style={{
@@ -213,16 +220,46 @@ export default function PrintableAssignment({ results, runName }: Props) {
         </table>
 
         {/* ===== SIGNATURES ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 30 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 30 }}>
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontWeight: 800, marginBottom: 40, fontSize: 12 }}>يعتمد،،،</p>
-            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>مدير عام الإدارة التعليمية</p>
-            <p style={{ color: '#6b7280', fontSize: 12 }}>( .................................................. )</p>
+            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>
+              {settings.officials_gm_title || 'مدير عام الإدارة'}
+            </p>
+            <p style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 12 }}>
+              {settings.officials_gm_name || '(..........................)'}
+            </p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontWeight: 800, marginBottom: 40, fontSize: 12 }}>يعتمد،،،</p>
-            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>رئيس قسم التوجيه الفني</p>
-            <p style={{ color: '#6b7280', fontSize: 12 }}>( .................................................. )</p>
+            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>
+              {settings.officials_deputy_title || 'وكيل الإدارة'}
+            </p>
+            <p style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 12 }}>
+              {settings.officials_deputy_name || '(..........................)'}
+            </p>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>
+              مدير التعليم الثانوي
+            </p>
+            <p style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 12 }}>
+              {settings.officials_mgr_sec || '(..........................)'}
+            </p>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>
+              مدير التعليم الإعدادي
+            </p>
+            <p style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 12 }}>
+              {settings.officials_mgr_prep || '(..........................)'}
+            </p>
+          </div>
+          <div style={{ textAlign: 'center', gridColumn: '2 / 4', marginTop: 16 }}>
+            <p style={{ fontWeight: 800, fontSize: 12, textDecoration: 'underline', marginBottom: 6 }}>
+              مدير التعليم الابتدائي
+            </p>
+            <p style={{ fontWeight: 600, color: '#1e3a5f', fontSize: 12 }}>
+              {settings.officials_mgr_primary || '(..........................)'}
+            </p>
           </div>
         </div>
 

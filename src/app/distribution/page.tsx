@@ -398,7 +398,21 @@ export default function DistributionPage() {
                 }}>إغلاق</button>
               </div>
               <div style={{ padding: 24, background: 'white', color: 'black' }}>
-                <PrintableAssignment results={results} runName={selectedRun?.run_name ?? ''} />
+                <PrintableAssignment 
+                  results={results} 
+                  runName={selectedRun?.run_name ?? ''} 
+                  stats={{
+                    total: results.length,
+                    by_wish_1: results.filter(r => r.rank_achieved === 1).length,
+                    by_wish_2: results.filter(r => r.rank_achieved === 2).length,
+                    by_wish_3: results.filter(r => r.rank_achieved === 3).length,
+                    by_wish_4: results.filter(r => r.rank_achieved === 4).length,
+                    forced: results.filter(r => r.rank_achieved === 0).length,
+                    unassigned: 0,
+                    satisfaction_rate: selectedRun?.satisfaction_rate ?? 0,
+                    avg_score: 0
+                  }}
+                />
               </div>
             </motion.div>
           </motion.div>

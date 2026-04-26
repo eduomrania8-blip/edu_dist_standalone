@@ -124,6 +124,50 @@ export function runDistributionAlgorithm(
     (a, b) => (b.needs_count ?? 1) - (a.needs_count ?? 1)
   );
 
+  // ─────────────────────────────────────────────────────────
+  // PHASE 1.5: PROCESS MANDATORY ASSIGNMENTS (Admin Pre-assignments)
+  // ─────────────────────────────────────────────────────────
+  for (const school of orderedSchools) {
+    if (school.mandatory_supervisor_id) {
+      const sup = supervisors.find(s => s.id === school.mandatory_supervisor_id);
+      if (sup) {
+        // Find if this was requested to track rank, but it's forced anyway
+        const wish = wishesMap.get(sup.id);
+        const rankAchieved =
+          wish?.wish_1 === school.id ? 1
+          : wish?.wish_2 === school.id ? 2
+          : wish?.wish_3 === school.id ? 3
+          : wish?.wish_4 === school.id ? 4 : 0;
+
+        assignments.push({
+          supervisor_id: sup.id,
+          assigned_school_id: school.id,
+          final_score: 9999, // Max score to ensure it stays locked
+          rank_achieved,
+          is_forced: true,
+          score_breakdown: {
+            preference_score: 0,
+            specialization_score: 0,
+            stage_score: 0,
+            type_score: 0,
+            workload_penalty: 0,
+            total: 9999,
+            preference_label: 'تكليف إداري (إجباري)' as any,
+          },
+          rejection_reasons: [],
+        });
+
+        // Update load and capacity
+        supervisorLoad.set(sup.id, (supervisorLoad.get(sup.id) ?? 0) + 1);
+        let capacity = schoolCapacities.get(school.id) ?? 1;
+        schoolCapacities.set(school.id, capacity - 1);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // PHASE 3: FAIRNESS-AWARE GREEDY ASSIGNMENT
+  // ─────────────────────────────────────────────────────────
   for (const school of orderedSchools) {
     let capacity = schoolCapacities.get(school.id) ?? 0;
 
@@ -275,6 +319,10 @@ function optimizeSwaps(
         const schoolB = schools.find(s => s.id === b.assigned_school_id);
 
         if (!supA || !supB || !schoolA || !schoolB) continue;
+
+        // SKIP IF EITHER IS A MANDATORY ASSIGNMENT (Locked by Admin)
+        if (schoolA.mandatory_supervisor_id === supA.id || schoolB.mandatory_supervisor_id === supB.id) continue;
+        if (a.final_score === 9999 || b.final_score === 9999) continue;
 
         // Check eligibility for swap
         if (!isEligible(supA, schoolB) || !isEligible(supB, schoolA)) continue;

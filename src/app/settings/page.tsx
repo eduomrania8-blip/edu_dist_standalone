@@ -19,6 +19,21 @@ const SETTING_LABELS: Record<string, string> = {
   type_bonus:          'مكافأة نوع المدرسة',
   workload_penalty:    'عقوبة العبء الزائد',
   max_default_load:    'الحد الأقصى الافتراضي للمدارس',
+  officials_gm_name:   'اسم مدير عام الإدارة',
+  officials_gm_title:  'لقب مدير عام الإدارة',
+  officials_gm_phone:  'هاتف مدير عام الإدارة',
+  officials_deputy_name: 'اسم وكيل الإدارة',
+  officials_deputy_title: 'لقب وكيل الإدارة',
+  officials_deputy_phone: 'هاتف وكيل الإدارة',
+  officials_security_name: 'اسم مسؤول أمن الإدارة',
+  officials_security_title: 'لقب مسؤول أمن الإدارة',
+  officials_security_phone: 'هاتف مسؤول أمن الإدارة',
+  officials_mgr_primary: 'مدير التعليم الابتدائي',
+  officials_mgr_primary_phone: 'هاتف التعليم الابتدائي',
+  officials_mgr_prep:  'مدير التعليم الإعدادي',
+  officials_mgr_prep_phone:  'هاتف التعليم الإعدادي',
+  officials_mgr_sec:   'مدير التعليم الثانوي',
+  officials_mgr_sec_phone:   'هاتف التعليم الثانوي',
 };
 
 const SETTING_GROUPS = [
@@ -33,6 +48,17 @@ const SETTING_GROUPS = [
   {
     title: 'معاملات الخوارزمية',
     keys: ['specialization_bonus', 'stage_bonus', 'type_bonus', 'workload_penalty', 'max_default_load'],
+  },
+  {
+    title: 'بيانات الاعتماد (توقيعات الكشوف)',
+    keys: [
+      'officials_gm_name', 'officials_gm_title', 'officials_gm_phone',
+      'officials_deputy_name', 'officials_deputy_title', 'officials_deputy_phone',
+      'officials_security_name', 'officials_security_title', 'officials_security_phone',
+      'officials_mgr_primary', 'officials_mgr_primary_phone',
+      'officials_mgr_prep', 'officials_mgr_prep_phone',
+      'officials_mgr_sec', 'officials_mgr_sec_phone'
+    ],
   },
 ];
 
@@ -71,7 +97,13 @@ export default function SettingsPage() {
   };
 
   const isNumeric = (key: string) =>
-    !['directorate_name', 'governorate_name', 'academic_year'].includes(key);
+    !['directorate_name', 'governorate_name', 'academic_year', 
+      'officials_gm_name', 'officials_gm_title', 'officials_gm_phone',
+      'officials_deputy_name', 'officials_deputy_title', 'officials_deputy_phone',
+      'officials_security_name', 'officials_security_title', 'officials_security_phone',
+      'officials_mgr_primary', 'officials_mgr_primary_phone',
+      'officials_mgr_prep', 'officials_mgr_prep_phone',
+      'officials_mgr_sec', 'officials_mgr_sec_phone'].includes(key);
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
