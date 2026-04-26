@@ -143,7 +143,7 @@ export function runDistributionAlgorithm(
           supervisor_id: sup.id,
           assigned_school_id: school.id,
           final_score: 9999, // Max score to ensure it stays locked
-          rank_achieved,
+          rank_achieved: rankAchieved,
           is_forced: true,
           score_breakdown: {
             preference_score: 0,
