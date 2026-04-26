@@ -157,24 +157,53 @@ export default function SettingsPage() {
             </div>
           ))}
 
-          {/* System Info */}
-          <div className="glass-card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>معلومات النظام</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[
-                { label: 'الإصدار', value: '2.0 Enterprise' },
-                { label: 'إطار العمل', value: 'Next.js 16 + Supabase' },
-                { label: 'قاعدة البيانات', value: 'PostgreSQL (Supabase)' },
-                { label: 'الخوارزمية', value: 'Scoring + Swap Optimization' },
-              ].map(item => (
-                <div key={item.label} style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: 10, padding: '10px 14px',
-                }}>
-                  <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{item.label}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{item.value}</p>
-                </div>
-              ))}
+          {/* System Info & Sync */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="glass-card" style={{ padding: 20 }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>معلومات النظام</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { label: 'الإصدار', value: '2.0 Enterprise' },
+                  { label: 'إطار العمل', value: 'Next.js 16 + Supabase' },
+                  { label: 'قاعدة البيانات', value: 'PostgreSQL (Supabase)' },
+                  { label: 'الخوارزمية', value: 'Scoring + Swap Optimization' },
+                ].map(item => (
+                  <div key={item.label} style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 10, padding: '10px 14px',
+                  }}>
+                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{item.label}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>جلب البيانات من Google Sheets</h3>
+              <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
+                يقوم هذا الإجراء بسحب بيانات المدارس والموجهين المحدثة من ملف Google Sheets المرتبط بالنظام.
+              </p>
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  setSaving('sync');
+                  try {
+                    const { syncDataFromGoogleSheets } = await import('@/actions/syncActions');
+                    const res = await syncDataFromGoogleSheets();
+                    if (res.success) toast.success(res.message);
+                    else toast.error(res.message);
+                  } catch (e: any) {
+                    toast.error('خطأ: ' + e.message);
+                  } finally {
+                    setSaving(null);
+                  }
+                }}
+                disabled={saving === 'sync'}
+              >
+                {saving === 'sync' ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                {saving === 'sync' ? 'جاري الجلب...' : 'بدء جلب البيانات'}
+              </button>
             </div>
           </div>
         </div>
