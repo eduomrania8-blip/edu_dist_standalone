@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Force webpack (Turbopack not supported on this Windows environment)
+  webpack: (config) => {
+    return config;
+  },
 };
 
 export default nextConfig;
