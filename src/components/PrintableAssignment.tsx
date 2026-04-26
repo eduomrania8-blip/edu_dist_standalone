@@ -49,14 +49,6 @@ export default function PrintableAssignment({ results, stats, runName }: Props) 
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  const stats = {
-    total: results.length,
-    byWish1: results.filter(r => r.rank_achieved === 1).length,
-    byWish2: results.filter(r => r.rank_achieved === 2).length,
-    byWish3: results.filter(r => r.rank_achieved === 3).length,
-    byWish4: results.filter(r => r.rank_achieved === 4).length,
-    forced: results.filter(r => r.rank_achieved === 0).length,
-  };
 
   return (
     <div dir="rtl" style={{ fontFamily: "'Cairo', 'Arial', sans-serif" }}>
