@@ -342,50 +342,29 @@ export async function generatePDF(
   filename: string,
   onProgress?: (msg: string) => void
 ): Promise<void> {
-  // Dynamic import — html2pdf.js is client-side only
   const html2pdf = (await import('html2pdf.js')).default;
 
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = `
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-      <meta charset="UTF-8">
+  const content = `
+    <div style="direction: rtl; font-family: 'Cairo', Arial, sans-serif; background: white; color: black;">
       <style>${BASE_STYLES}</style>
-    </head>
-    <body>${bodyHtml}</body>
-    </html>
+      ${bodyHtml}
+    </div>
   `;
-  // We need just the body content
-  const container = document.createElement('div');
-  container.style.direction = 'rtl';
-  container.style.fontFamily = "'Cairo', Arial, sans-serif";
-  container.innerHTML = bodyHtml;
-
-  // Apply inline base styles so html2pdf captures them
-  const styleEl = document.createElement('style');
-  styleEl.textContent = BASE_STYLES;
-  container.prepend(styleEl);
-
-  document.body.appendChild(container);
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '0';
 
   onProgress?.('جارٍ إنشاء ملف PDF...');
 
   try {
     await html2pdf()
       .set({
-        margin: [8, 8, 8, 8],           // mm
+        margin: [8, 8, 8, 8],
         filename: filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
-          scale: 2,                      // High DPI for sharp text
+          scale: 2,
           useCORS: true,
           logging: false,
           letterRendering: true,
-          allowTaint: true,
+          windowWidth: 800, // Explicit width for rendering
         },
         jsPDF: {
           unit: 'mm',
@@ -394,10 +373,12 @@ export async function generatePDF(
         },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       } as any)
-      .from(container)
+      .from(content)
       .save();
+  } catch (err) {
+    console.error('PDF Generation Error:', err);
+    throw err;
   } finally {
-    document.body.removeChild(container);
     onProgress?.('');
   }
 }
