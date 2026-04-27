@@ -393,7 +393,7 @@ export async function generatePDF(
           orientation: 'portrait',
         },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      })
+      } as any)
       .from(container)
       .save();
   } finally {
