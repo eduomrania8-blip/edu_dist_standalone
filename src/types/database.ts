@@ -25,6 +25,16 @@ export type RankLabel = 'رغبة أولى' | 'رغبة ثانية' | 'رغبة 
 // DATABASE MODELS
 // ────────────────────────────────────────────────────────────
 
+export interface User {
+  id: string;
+  username: string;
+  password_hash: string;
+  role: 'admin' | 'guidance';
+  specialty?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface School {
   id: string;
   school_code: string;

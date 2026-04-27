@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, RefreshCw, ChevronDown, ChevronUp, Info,
@@ -291,8 +291,8 @@ export default function DistributionPage() {
                   </td></tr>
                 ) : (
                   results.map(res => (
-                    <>
-                      <tr key={res.id} style={{ cursor: 'pointer' }}
+                    <Fragment key={res.id}>
+                      <tr style={{ cursor: 'pointer' }}
                         onClick={() => setExpandedRow(expandedRow === res.id ? null : res.id)}>
                         <td style={{ fontWeight: 600 }}>{res.supervisor?.name}</td>
                         <td style={{ color: '#94a3b8', fontSize: 13 }}>{res.supervisor?.specialty}</td>
@@ -360,7 +360,7 @@ export default function DistributionPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))
                 )}
               </tbody>

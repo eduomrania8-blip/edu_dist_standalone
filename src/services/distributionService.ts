@@ -67,6 +67,32 @@ export async function getAllSupervisors(): Promise<Supervisor[]> {
   return data ?? [];
 }
 
+export async function getAllSupervisorsIncludingInactive(): Promise<Supervisor[]> {
+  const { data, error } = await supabase
+    .from('supervisors')
+    .select('*, home_school:schools(id, school_name, school_code)')
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function toggleSupervisorActive(id: string, is_active: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('supervisors')
+    .update({ is_active })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function setMandatorySupervisor(schoolId: string, supervisorId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('schools')
+    .update({ mandatory_supervisor_id: supervisorId })
+    .eq('id', schoolId);
+  if (error) throw error;
+}
+
+
 export async function createSupervisor(data: SupervisorFormData): Promise<Supervisor> {
   const { data: sup, error } = await supabase
     .from('supervisors')
@@ -296,3 +322,57 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     .eq('setting_key', key);
   if (error) throw error;
 }
+
+// ────────────────────────────────────────────────────────────
+// USERS MANAGEMENT
+// ────────────────────────────────────────────────────────────
+
+export async function getAllUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .order('username');
+  if (error) throw error;
+  return data;
+}
+
+export async function createUser(data: any) {
+  const { data: user, error } = await supabase
+    .from('users')
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return user;
+}
+
+export async function updateUser(id: string, data: any) {
+  const { data: user, error } = await supabase
+    .from('users')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return user;
+}
+
+export async function deleteUser(id: string) {
+  const { error } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function getUniqueSpecialties(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('supervisors')
+    .select('specialty');
+  if (error) throw error;
+  
+  const specs = Array.from(new Set((data ?? []).map(s => s.specialty))).sort();
+  return specs.length > 0 ? specs : ['عام'];
+}
+
+

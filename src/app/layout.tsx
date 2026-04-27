@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={cairo.variable}>
+      <body className={cairo.variable} suppressHydrationWarning>
         <Sidebar />
         <main className="main-content">
           {children}

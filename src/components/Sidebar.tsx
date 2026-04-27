@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,7 +12,11 @@ import {
   BarChart3,
   Settings,
   Zap,
+  LogOut,
+  Shield,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { logout, getUser } from '@/actions/authActions';
 
 const navItems = [
   { href: '/',              label: 'لوحة التحكم',       icon: LayoutDashboard },
@@ -20,11 +25,35 @@ const navItems = [
   { href: '/wishes',        label: 'الرغبات',            icon: Heart },
   { href: '/distribution',  label: 'تشغيل التوزيع',      icon: Play },
   { href: '/reports',       label: 'التقارير',            icon: BarChart3 },
+  { href: '/users',         label: 'إدارة المستخدمين',     icon: Shield },
   { href: '/settings',      label: 'الإعدادات',           icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    getUser().then(setUser);
+  }, []);
+
+  const handleLogout = async () => {
+    const res = await logout();
+    if (res.success) {
+      router.push('/login');
+    }
+  };
+
+  if (pathname === '/login') return null;
+
+  const filteredItems = navItems.filter(item => {
+    // If user is still loading, show all items to avoid blank sidebar
+    if (!user) return true;
+    if (user.role === 'admin') return true;
+    // Guidance users only see dashboard
+    return item.href === '/';
+  });
 
   return (
     <nav className="sidebar no-print">
@@ -64,7 +93,7 @@ export default function Sidebar() {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {navItems.map(({ href, label, icon: Icon }) => {
+          {filteredItems.map(({ href, label, icon: Icon }) => {
             const isActive = href === '/'
               ? pathname === '/'
               : pathname.startsWith(href);
@@ -80,6 +109,21 @@ export default function Sidebar() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Logout Button */}
+        <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
+          <button
+            onClick={handleLogout}
+            className="nav-link"
+            style={{ 
+              color: 'var(--accent-rose)',
+              background: 'rgba(248,113,113,0.05)',
+            }}
+          >
+            <LogOut size={18} />
+            <span>تسجيل الخروج</span>
+          </button>
         </div>
       </div>
 

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSupervisors, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools,
+  getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties,
 } from '@/services/distributionService';
 import {
   Supervisor, SupervisorFormData, School, STAGES, SCHOOL_TYPES, SPECIALIZATIONS,
@@ -31,13 +31,19 @@ export default function SupervisorsPage() {
   const [editing, setEditing] = useState<Supervisor | null>(null);
   const [form, setForm] = useState<SupervisorFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [specs, setSpecs] = useState<string[]>(['عام']);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sups, schs] = await Promise.all([getAllSupervisors(), getAllSchools()]);
+      const [sups, schs, specsData] = await Promise.all([
+        getAllSupervisorsIncludingInactive(), 
+        getAllSchools(),
+        getUniqueSpecialties()
+      ]);
       setSupervisors(sups);
       setSchools(schs);
+      setSpecs(specsData);
     } finally {
       setLoading(false);
     }
@@ -98,6 +104,18 @@ export default function SupervisorsPage() {
     }
   };
 
+  const handleToggleActive = async (sup: Supervisor) => {
+    const newStatus = !sup.is_active;
+    setSupervisors(prev => prev.map(s => s.id === sup.id ? { ...s, is_active: newStatus } : s));
+    try {
+      await toggleSupervisorActive(sup.id, newStatus);
+      toast.success(newStatus ? 'تم تفعيل الموجه' : 'تم تعطيل الموجه');
+    } catch (e: any) {
+      setSupervisors(prev => prev.map(s => s.id === sup.id ? { ...s, is_active: !newStatus } : s));
+      toast.error('خطأ: ' + e.message);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div className="page-header">
@@ -130,7 +148,7 @@ export default function SupervisorsPage() {
                 <th>التخصص</th>
                 <th>المرحلة</th>
                 <th>مدرسته</th>
-                <th>الحد الأقصى</th>
+                <th>الحالة</th>
                 <th>الإجراءات</th>
               </tr>
             </thead>
@@ -145,14 +163,24 @@ export default function SupervisorsPage() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: 48, color: '#475569' }}>لا توجد نتائج</td></tr>
               ) : (
                 filtered.map(sup => (
-                  <tr key={sup.id}>
+                  <tr key={sup.id} style={{ opacity: sup.is_active ? 1 : 0.5 }}>
                     <td style={{ fontWeight: 600 }}>{sup.name}</td>
                     <td><span className="badge badge-purple">{sup.specialty}</span></td>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>{sup.stage ?? '—'}</td>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>
                       {(sup.home_school as any)?.school_name ?? '—'}
                     </td>
-                    <td style={{ color: '#94a3b8', fontSize: 13 }}>{sup.max_assignments ?? 1} مدرسة</td>
+                    <td>
+                      <button onClick={() => handleToggleActive(sup)} style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        color: sup.is_active ? '#34d399' : '#f87171',
+                        fontSize: 12, fontWeight: 600,
+                      }}>
+                        {sup.is_active ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                        {sup.is_active ? 'متاح' : 'غير متاح'}
+                      </button>
+                    </td>
                     <td>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => openEdit(sup)} style={{
@@ -202,7 +230,7 @@ export default function SupervisorsPage() {
                 <label className="form-label">التخصص</label>
                 <select className="form-input" value={form.specialty}
                   onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}>
-                  {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {specs.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>

@@ -212,30 +212,46 @@ export default function SettingsPage() {
             </div>
 
             <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>جلب البيانات من Google Sheets</h3>
+              <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>استيراد البيانات من Excel</h3>
               <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
-                يقوم هذا الإجراء بسحب بيانات المدارس والموجهين المحدثة من ملف Google Sheets المرتبط بالنظام.
+                يقوم هذا الإجراء برفع ملف الإكسيل (الذي يحتوي على المدارس والموجهين) وتحديث قاعدة البيانات به.
               </p>
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  setSaving('sync');
+              
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSaving('excel_sync');
                   try {
-                    const { syncDataFromGoogleSheets } = await import('@/actions/syncActions');
-                    const res = await syncDataFromGoogleSheets();
+                    const formData = new FormData(e.currentTarget);
+                    const { importExcelData } = await import('@/actions/excelActions');
+                    const res = await importExcelData(formData);
                     if (res.success) toast.success(res.message);
                     else toast.error(res.message);
-                  } catch (e: any) {
-                    toast.error('خطأ: ' + e.message);
+                  } catch (err: any) {
+                    toast.error('خطأ: ' + err.message);
                   } finally {
                     setSaving(null);
                   }
                 }}
-                disabled={saving === 'sync'}
+                style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', alignItems: 'center' }}
               >
-                {saving === 'sync' ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                {saving === 'sync' ? 'جاري الجلب...' : 'بدء جلب البيانات'}
-              </button>
+                <input 
+                  type="file" 
+                  name="file" 
+                  accept=".xlsx, .xls" 
+                  required 
+                  className="form-input" 
+                  style={{ width: '80%', fontSize: 12 }}
+                />
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={saving === 'excel_sync'}
+                >
+                  {saving === 'excel_sync' ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  {saving === 'excel_sync' ? 'جاري الاستيراد...' : 'بدء استيراد البيانات'}
+                </button>
+              </form>
             </div>
           </div>
         </div>

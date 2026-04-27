@@ -1,24 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3, TrendingUp, Users, School,
   Download, FileText, CheckCircle2, AlertTriangle,
+  Printer, Mail, Layers, BookOpen, FileSpreadsheet,
 } from 'lucide-react';
-import { getAllRuns, getResultsByRun } from '@/services/distributionService';
+import { toast } from 'react-hot-toast';
+import { getAllRuns, getResultsByRun, getSettings } from '@/services/distributionService';
 import { DistributionRun, DistributionResult } from '@/types/database';
 import { getRankLabel } from '@/lib/distributionAlgorithm';
+import {
+  settingsToReport, renderHeader, renderOfficials,
+  renderManagersTable, renderSignatures, renderGMSignature,
+  INSTRUCTIONS, openPrintWindow, ReportSettings,
+} from '@/components/reports/reportUtils';
 
 export default function ReportsPage() {
   const [runs, setRuns] = useState<DistributionRun[]>([]);
   const [selectedRun, setSelectedRun] = useState<string>('');
   const [results, setResults] = useState<DistributionResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cfg, setCfg] = useState<ReportSettings | null>(null);
 
   useEffect(() => {
-    getAllRuns().then(r => {
+    Promise.all([
+      getAllRuns(),
+      getSettings(),
+    ]).then(([r, s]) => {
       setRuns(r);
       if (r.length > 0) setSelectedRun(r[0].id);
+      setCfg(settingsToReport(s));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -28,26 +40,14 @@ export default function ReportsPage() {
 
   const run = runs.find(r => r.id === selectedRun);
 
+  // ═══════ Stats ═══════
   const byWish = [1, 2, 3, 4, 0].map(rank => ({
     label: getRankLabel(rank),
     count: results.filter(r => r.rank_achieved === rank).length,
     color: rank === 1 ? '#34d399' : rank === 2 ? '#22d3ee' : rank === 3 ? '#a78bfa' : rank === 4 ? '#60a5fa' : '#fbbf24',
   }));
-
   const maxCount = Math.max(...byWish.map(b => b.count), 1);
 
-  // Group by school
-  const bySchool = Object.entries(
-    results.reduce<Record<string, { name: string; count: number }>>((acc, r) => {
-      const id = r.assigned_school_id;
-      const name = r.school?.school_name ?? id;
-      if (!acc[id]) acc[id] = { name, count: 0 };
-      acc[id].count++;
-      return acc;
-    }, {})
-  ).sort((a, b) => b[1].count - a[1].count);
-
-  // Group by specialty
   const bySpecialty = Object.entries(
     results.reduce<Record<string, number>>((acc, r) => {
       const spec = r.supervisor?.specialty ?? 'غير محدد';
@@ -56,6 +56,7 @@ export default function ReportsPage() {
     }, {})
   ).sort((a, b) => b[1] - a[1]);
 
+  // ═══════ Export CSV ═══════
   const exportCSV = () => {
     const headers = ['الموجه', 'التخصص', 'المرحلة', 'المدرسة', 'الرغبة المحققة', 'النقاط'];
     const rows = results.map(r => [
@@ -75,12 +76,203 @@ export default function ReportsPage() {
     a.click();
   };
 
+  // ═══════ Individual Letters ═══════
+  const printIndividualLetters = () => {
+    if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
+    const fullHtml = results.filter(r => r.supervisor && r.school).map(r => {
+      const supName = r.supervisor?.name ?? '';
+      const schoolName = r.school?.school_name ?? '';
+      const specialty = r.supervisor?.specialty ?? '';
+
+      return `
+        <div class="report-page">
+          ${renderHeader(cfg, '✉️ خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
+          ${renderOfficials(cfg)}
+
+          <div style="margin:5px 0; border:1.5px solid #000; padding:5px;">
+            <p style="font-weight:bold; margin-bottom:5px; font-size:11px;">
+              السيد / <span style="border-bottom:1px dashed #000; padding:0 10px;">${supName}</span>
+              &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 10px;">${specialty}</span>
+            </p>
+            <p style="text-align:center; font-weight:bold; margin:5px 0; font-size:11px;">
+              تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة :
+            </p>
+            <div style="display:flex; justify-content:center; margin:2px 0;">
+              <div style="border:2px solid #000; padding:4px 15px; font-size:1rem; font-weight:900; min-width:150px; text-align:center; background:#f9f9f9;">
+                ${schoolName}
+              </div>
+            </div>
+            <p style="text-align:center; font-weight:bold; text-decoration:underline; font-size:10px;">وحسب مواعيد جدول امتحانات الصفوف الموجودة بالمدرسة</p>
+          </div>
+
+          <p style="text-align:right; font-weight:bold; margin-top:2px; font-size:11px;">ويراعى الالتزام بما يلى :</p>
+          <ol class="instructions-list" dir="rtl" style="margin-right:20px; margin-bottom:2px;">
+            ${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}
+          </ol>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
+            <div style="text-align:right; font-size:11px; padding-right:5px;">
+              <p style="font-weight:bold; text-decoration:underline; margin-bottom:4px;">توقيع الموجه</p>
+              <p style="margin-bottom:2px;">الاسم : ..........................................</p>
+              <p style="margin-bottom:2px;">الوظيفة : .......................................</p>
+              <p style="margin-bottom:2px;">رقم التليفون : .................................</p>
+              <p style="margin-bottom:2px;">التوقيع : ........................................</p>
+            </div>
+            ${renderManagersTable(cfg)}
+          </div>
+
+          ${renderSignatures(cfg)}
+        </div>
+      `;
+    }).join('');
+
+    openPrintWindow('خطابات التكليف', fullHtml);
+  };
+
+  // ═══════ Guidance Sheets (per specialty) ═══════
+  const printGuidanceSheets = () => {
+    if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
+
+    const groups: Record<string, DistributionResult[]> = {};
+    results.forEach(r => {
+      const spec = r.supervisor?.specialty ?? 'غير محدد';
+      if (!groups[spec]) groups[spec] = [];
+      groups[spec].push(r);
+    });
+
+    const fullHtml = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], 'ar')).map(([spec, items]) => {
+      const rows = items.map((r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="text-align:right">${r.school?.school_name ?? ''}<div style="font-size:8px; color:#666;">(${r.school?.school_type ?? ''})</div></td>
+          <td>${r.supervisor?.name ?? ''}</td>
+          <td dir="ltr" style="text-align:center;">${r.supervisor?.phone ?? '—'}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="report-page">
+          ${renderHeader(cfg, `كشف توزيع الموجهين — توجيه ${spec}`, `${cfg.semester} ${cfg.academicYear}`)}
+          <table class="official-table" style="margin-top:15px;">
+            <thead><tr style="background:#e9ecef;">
+              <th style="width:40px;">م</th>
+              <th>اسم المدرسة</th>
+              <th style="width:200px;">اسم الموجه المقيم</th>
+              <th style="width:120px;">رقم التليفون</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${renderGMSignature(cfg)}
+        </div>
+      `;
+    }).join('');
+
+    openPrintWindow('كشوف التوجيه', fullHtml);
+  };
+
+  // ═══════ Stage Sheets (per stage) ═══════
+  const printStageSheets = () => {
+    if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
+
+    const groups: Record<string, { label: string; items: DistributionResult[] }> = {
+      P_OFF: { label: 'المرحلة الابتدائية (رسمي)', items: [] },
+      E_OFF: { label: 'المرحلة الإعدادية (رسمي)', items: [] },
+      S_OFF: { label: 'المرحلة الثانوية (رسمي)', items: [] },
+      PVT: { label: 'المدارس الخاصة والدولية', items: [] },
+    };
+
+    results.forEach(r => {
+      const stage = r.school?.stage ?? '';
+      const type = r.school?.school_type ?? '';
+      const isOfficial = type.includes('رسمي') || type.includes('رسمى') || type.includes('حكومي') || type.includes('ثقافي') || type.includes('ثقافى');
+      if (!isOfficial) { groups.PVT.items.push(r); }
+      else if (stage.includes('ابتدائ')) groups.P_OFF.items.push(r);
+      else if (stage.includes('إعداد') || stage.includes('اعداد')) groups.E_OFF.items.push(r);
+      else if (stage.includes('ثانو')) groups.S_OFF.items.push(r);
+      else groups.P_OFF.items.push(r);
+    });
+
+    const fullHtml = Object.values(groups).filter(g => g.items.length > 0).map(group => {
+      group.items.sort((a, b) => (a.school?.school_name ?? '').localeCompare(b.school?.school_name ?? '', 'ar'));
+      const rows = group.items.map((r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="text-align:right">${r.school?.school_name ?? ''}<div style="font-size:8px; color:#666;">(${r.school?.school_type ?? ''})</div></td>
+          <td>${r.supervisor?.name ?? ''}</td>
+          <td>${r.supervisor?.specialty ?? ''}</td>
+          <td dir="ltr" style="text-align:center;">${r.supervisor?.phone ?? '—'}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="report-page">
+          ${renderHeader(cfg, `توزيع الموجهين المقيمين — ${group.label}`, `${cfg.semester} ${cfg.academicYear}`)}
+          <table class="official-table" style="margin-top:15px;">
+            <thead><tr style="background:#e9ecef;">
+              <th style="width:40px;">م</th>
+              <th>اسم المدرسة</th>
+              <th style="width:180px;">اسم الموجه</th>
+              <th style="width:100px;">التخصص</th>
+              <th style="width:110px;">التليفون</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${renderGMSignature(cfg)}
+        </div>
+      `;
+    }).join('');
+
+    openPrintWindow('كشوف المراحل', fullHtml);
+  };
+
+  // ═══════ Blank Letter ═══════
+  const printBlankLetter = () => {
+    if (!cfg) return toast.error('لم يتم تحميل الإعدادات');
+    const html = `
+      <div class="report-page">
+        ${renderHeader(cfg, '✉️ خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
+        ${renderOfficials(cfg)}
+        <div style="margin:5px 0; border:1.5px solid #000; padding:5px;">
+          <p style="font-weight:bold; margin-bottom:5px; font-size:11px;">
+            السيد / <span style="border-bottom:1px dashed #000; padding:0 10px;">.........................................</span>
+            &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 10px;">.........................................</span>
+          </p>
+          <p style="text-align:center; font-weight:bold; margin:5px 0; font-size:11px;">
+            تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة :
+          </p>
+          <div style="display:flex; justify-content:center; margin:2px 0;">
+            <div style="border:2px solid #000; padding:4px 15px; font-size:1rem; font-weight:900; min-width:150px; text-align:center; background:#f9f9f9;">
+              ..................................................................
+            </div>
+          </div>
+          <p style="text-align:center; font-weight:bold; text-decoration:underline; font-size:10px;">وحسب مواعيد جدول امتحانات الصفوف الموجودة بالمدرسة</p>
+        </div>
+        <p style="text-align:right; font-weight:bold; margin-top:2px; font-size:11px;">ويراعى الالتزام بما يلى :</p>
+        <ol class="instructions-list" dir="rtl" style="margin-right:20px; margin-bottom:2px;">
+          ${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}
+        </ol>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
+          <div style="text-align:right; font-size:11px; padding-right:5px;">
+            <p style="font-weight:bold; text-decoration:underline; margin-bottom:4px;">توقيع الموجه</p>
+            <p style="margin-bottom:2px;">الاسم : ..........................................</p>
+            <p style="margin-bottom:2px;">الوظيفة : .......................................</p>
+            <p style="margin-bottom:2px;">رقم التليفون : .................................</p>
+            <p style="margin-bottom:2px;">التوقيع : ........................................</p>
+          </div>
+          ${renderManagersTable(cfg)}
+        </div>
+        ${renderSignatures(cfg)}
+      </div>
+    `;
+    openPrintWindow('خطاب فارغ', html);
+  };
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <h1 className="page-title">التقارير والإحصائيات</h1>
-          <p className="page-subtitle">تحليل شامل لنتائج التوزيع</p>
+          <p className="page-subtitle">تحليل شامل لنتائج التوزيع وطباعة الكشوف الرسمية</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <select className="form-input" style={{ width: 220 }}
@@ -109,7 +301,25 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
+          {/* ═══════ PRINT BUTTONS ═══════ */}
+          <div className="glass-card glass-card-accent" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Printer size={18} color="#22d3ee" />
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9', marginLeft: 8 }}>طباعة التقارير:</span>
+            <button className="btn-primary" onClick={printIndividualLetters} style={{ padding: '8px 16px', fontSize: 12 }}>
+              <Mail size={14} /> خطابات التكليف الفردية
+            </button>
+            <button className="btn-primary" onClick={printGuidanceSheets} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg, #a78bfa, #818cf8)' }}>
+              <BookOpen size={14} /> كشوف حسب التوجيه
+            </button>
+            <button className="btn-primary" onClick={printStageSheets} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg, #60a5fa, #3b82f6)' }}>
+              <Layers size={14} /> كشوف حسب المرحلة
+            </button>
+            <button className="btn-secondary" onClick={printBlankLetter} style={{ padding: '8px 16px', fontSize: 12 }}>
+              <FileSpreadsheet size={14} /> خطاب فارغ
+            </button>
+          </div>
+
+          {/* ═══════ SUMMARY CARDS ═══════ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
             {[
               { label: 'إجمالي التوزيعات', value: results.length, icon: Users, color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
@@ -132,7 +342,7 @@ export default function ReportsPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            {/* Wish Distribution Chart */}
+            {/* Wish Distribution */}
             <div className="glass-card" style={{ padding: 20 }}>
               <h3 style={{ margin: '0 0 20px', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TrendingUp size={16} color="#22d3ee" /> توزيع الرغبات
@@ -145,13 +355,7 @@ export default function ReportsPage() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: item.color }}>{item.count}</span>
                     </div>
                     <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${(item.count / maxCount) * 100}%`,
-                        background: item.color,
-                        borderRadius: 4,
-                        transition: 'width 0.6s ease',
-                      }} />
+                      <div style={{ height: '100%', width: `${(item.count / maxCount) * 100}%`, background: item.color, borderRadius: 4, transition: 'width 0.6s ease' }} />
                     </div>
                   </div>
                 ))}
