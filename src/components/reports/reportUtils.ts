@@ -342,45 +342,61 @@ export async function generatePDF(
   filename: string,
   onProgress?: (msg: string) => void
 ): Promise<void> {
-  const html2pdf = (await import('html2pdf.js')).default;
+  onProgress?.('تجهيز الملف للطباعة...');
+  
+  return new Promise((resolve) => {
+    // Create an invisible iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
 
-  const content = `
-    <div style="direction: rtl; font-family: 'Cairo', Arial, sans-serif; background: white; color: black;">
-      <style>${BASE_STYLES}</style>
-      ${bodyHtml}
-    </div>
-  `;
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      onProgress?.('');
+      resolve();
+      return;
+    }
 
-  onProgress?.('جارٍ إنشاء ملف PDF...');
+    // Write the HTML content with print-specific styles
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <title>${filename}</title>
+        <style>
+          ${BASE_STYLES}
+          @page { size: A4 portrait; margin: 10mm; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        </style>
+      </head>
+      <body>
+        ${bodyHtml}
+      </body>
+      </html>
+    `);
+    doc.close();
 
-  try {
-    await html2pdf()
-      .set({
-        margin: [8, 8, 8, 8],
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-          windowWidth: 800, // Explicit width for rendering
-        },
-        jsPDF: {
-          unit: 'mm',
-          format: 'a4',
-          orientation: 'portrait',
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      } as any)
-      .from(content)
-      .save();
-  } catch (err) {
-    console.error('PDF Generation Error:', err);
-    throw err;
-  } finally {
-    onProgress?.('');
-  }
+    // Wait for content to load, then trigger print
+    iframe.onload = () => {
+      onProgress?.('');
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      
+      // Cleanup after print dialog is closed
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        resolve();
+      }, 1000);
+    };
+  });
 }
 
 // ─── Convenience: open in browser print dialog (fallback) ────────────────
