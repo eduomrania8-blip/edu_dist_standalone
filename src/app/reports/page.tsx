@@ -13,7 +13,7 @@ import { getRankLabel } from '@/lib/distributionAlgorithm';
 import {
   settingsToReport, renderHeader, renderOfficials,
   renderManagersTable, renderSignatures, renderGMSignature,
-  INSTRUCTIONS, openPrintWindow, ReportSettings,
+  INSTRUCTIONS, generatePDF, openPrintWindow, ReportSettings, wrapPages,
 } from '@/components/reports/reportUtils';
 
 export default function ReportsPage() {
@@ -22,6 +22,7 @@ export default function ReportsPage() {
   const [results, setResults] = useState<DistributionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [cfg, setCfg] = useState<ReportSettings | null>(null);
+  const [pdfProgress, setPdfProgress] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -77,101 +78,91 @@ export default function ReportsPage() {
   };
 
   // ═══════ Individual Letters ═══════
-  const printIndividualLetters = () => {
+  const printIndividualLetters = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
-    const fullHtml = results.filter(r => r.supervisor && r.school).map(r => {
+    const pages = results.filter(r => r.supervisor && r.school).map(r => {
       const supName = r.supervisor?.name ?? '';
       const schoolName = r.school?.school_name ?? '';
       const specialty = r.supervisor?.specialty ?? '';
-
+      const phone = r.supervisor?.phone ?? '';
       return `
-        <div class="report-page">
-          ${renderHeader(cfg, '✉️ خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
-          ${renderOfficials(cfg)}
-
-          <div style="margin:5px 0; border:1.5px solid #000; padding:5px;">
-            <p style="font-weight:bold; margin-bottom:5px; font-size:11px;">
-              السيد / <span style="border-bottom:1px dashed #000; padding:0 10px;">${supName}</span>
-              &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 10px;">${specialty}</span>
-            </p>
-            <p style="text-align:center; font-weight:bold; margin:5px 0; font-size:11px;">
-              تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة :
-            </p>
-            <div style="display:flex; justify-content:center; margin:2px 0;">
-              <div style="border:2px solid #000; padding:4px 15px; font-size:1rem; font-weight:900; min-width:150px; text-align:center; background:#f9f9f9;">
-                ${schoolName}
-              </div>
-            </div>
-            <p style="text-align:center; font-weight:bold; text-decoration:underline; font-size:10px;">وحسب مواعيد جدول امتحانات الصفوف الموجودة بالمدرسة</p>
-          </div>
-
-          <p style="text-align:right; font-weight:bold; margin-top:2px; font-size:11px;">ويراعى الالتزام بما يلى :</p>
-          <ol class="instructions-list" dir="rtl" style="margin-right:20px; margin-bottom:2px;">
-            ${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}
-          </ol>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-            <div style="text-align:right; font-size:11px; padding-right:5px;">
-              <p style="font-weight:bold; text-decoration:underline; margin-bottom:4px;">توقيع الموجه</p>
-              <p style="margin-bottom:2px;">الاسم : ..........................................</p>
-              <p style="margin-bottom:2px;">الوظيفة : .......................................</p>
-              <p style="margin-bottom:2px;">رقم التليفون : .................................</p>
-              <p style="margin-bottom:2px;">التوقيع : ........................................</p>
-            </div>
-            ${renderManagersTable(cfg)}
-          </div>
-
-          ${renderSignatures(cfg)}
+        ${renderHeader(cfg, 'خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
+        ${renderOfficials(cfg)}
+        <div class="sup-card">
+          <p style="font-weight:700; margin-bottom:6px;">
+            السيد / <span style="border-bottom:1px dashed #000; padding:0 8px;">${supName}</span>
+            &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 8px;">${specialty}</span>
+            ${phone ? `&nbsp;&nbsp; تليفون: <span dir="ltr" style="font-weight:700;">${phone}</span>` : ''}
+          </p>
+          <p style="text-align:center; font-weight:700; margin:8px 0;">تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة:</p>
+          <p style="text-align:center;"><span class="school-box">${schoolName}</span></p>
+          <p style="text-align:center; font-size:10px; text-decoration:underline; margin-top:4px;">وحسب مواعيد جدول امتحانات الصفوف الموجودة بالمدرسة</p>
         </div>
+        <p style="font-weight:700; margin:6px 0;">ويراعى الالتزام بما يلى:</p>
+        <ol class="instructions" dir="rtl">${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}</ol>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px;">
+          <div style="font-size:11px;">
+            <p style="font-weight:700; text-decoration:underline; margin-bottom:5px;">توقيع الموجه</p>
+            <p>الاسم: .................................</p>
+            <p>الوظيفة: ................................</p>
+            <p>رقم التليفون: ...........................</p>
+            <p>التوقيع: .................................</p>
+          </div>
+          ${renderManagersTable(cfg)}
+        </div>
+        ${renderSignatures(cfg)}
       `;
-    }).join('');
-
-    openPrintWindow('خطابات التكليف', fullHtml);
+    });
+    try {
+      await generatePDF(wrapPages(pages), `خطابات_تكليف_${run?.run_name ?? 'التوزيع'}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء ملف PDF بنجاح');
+    } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
 
   // ═══════ Guidance Sheets (per specialty) ═══════
-  const printGuidanceSheets = () => {
+  const printGuidanceSheets = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
-
     const groups: Record<string, DistributionResult[]> = {};
     results.forEach(r => {
       const spec = r.supervisor?.specialty ?? 'غير محدد';
       if (!groups[spec]) groups[spec] = [];
       groups[spec].push(r);
     });
-
-    const fullHtml = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], 'ar')).map(([spec, items]) => {
-      const rows = items.map((r, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td style="text-align:right">${r.school?.school_name ?? ''}<div style="font-size:8px; color:#666;">(${r.school?.school_type ?? ''})</div></td>
-          <td>${r.supervisor?.name ?? ''}</td>
-          <td dir="ltr" style="text-align:center;">${r.supervisor?.phone ?? '—'}</td>
-        </tr>
-      `).join('');
-
-      return `
-        <div class="report-page">
-          ${renderHeader(cfg, `كشف توزيع الموجهين — توجيه ${spec}`, `${cfg.semester} ${cfg.academicYear}`)}
-          <table class="official-table" style="margin-top:15px;">
-            <thead><tr style="background:#e9ecef;">
-              <th style="width:40px;">م</th>
+    const pages = Object.entries(groups)
+      .sort((a, b) => a[0].localeCompare(b[0], 'ar'))
+      .map(([spec, items]) => {
+        items.sort((a, b) => (a.school?.school_name ?? '').localeCompare(b.school?.school_name ?? '', 'ar'));
+        const rows = items.map((r, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td style="text-align:right; font-weight:600;">${r.school?.school_name ?? ''}</td>
+            <td style="font-size:10px; color:#555;">${r.school?.school_type ?? ''}</td>
+            <td>${r.supervisor?.name ?? ''}</td>
+            <td dir="ltr">${r.supervisor?.phone ?? '—'}</td>
+          </tr>`);
+        return `
+          ${renderHeader(cfg, `كشف الموجهين — توجيه ${spec}`, `${cfg.semester} ${cfg.academicYear}`)}
+          <table class="data-tbl">
+            <thead><tr>
+              <th style="width:35px;">م</th>
               <th>اسم المدرسة</th>
-              <th style="width:200px;">اسم الموجه المقيم</th>
-              <th style="width:120px;">رقم التليفون</th>
+              <th style="width:80px;">النوع</th>
+              <th style="width:180px;">اسم الموجه</th>
+              <th style="width:110px;">التليفون</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows.join('')}</tbody>
           </table>
           ${renderGMSignature(cfg)}
-        </div>
-      `;
-    }).join('');
-
-    openPrintWindow('كشوف التوجيه', fullHtml);
+        `;
+      });
+    try {
+      await generatePDF(wrapPages(pages), `كشوف_التوجيه_${run?.run_name ?? ''}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
 
   // ═══════ Stage Sheets (per stage) ═══════
-  const printStageSheets = () => {
+  const printStageSheets = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
 
     const groups: Record<string, { label: string; items: DistributionResult[] }> = {
@@ -222,49 +213,39 @@ export default function ReportsPage() {
       `;
     }).join('');
 
-    openPrintWindow('كشوف المراحل', fullHtml);
+    try {
+      await generatePDF(fullHtml, `كشوف_المراحل_${run?.run_name ?? ''}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
 
   // ═══════ Blank Letter ═══════
-  const printBlankLetter = () => {
+  const printBlankLetter = async () => {
     if (!cfg) return toast.error('لم يتم تحميل الإعدادات');
-    const html = `
-      <div class="report-page">
-        ${renderHeader(cfg, '✉️ خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
-        ${renderOfficials(cfg)}
-        <div style="margin:5px 0; border:1.5px solid #000; padding:5px;">
-          <p style="font-weight:bold; margin-bottom:5px; font-size:11px;">
-            السيد / <span style="border-bottom:1px dashed #000; padding:0 10px;">.........................................</span>
-            &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 10px;">.........................................</span>
-          </p>
-          <p style="text-align:center; font-weight:bold; margin:5px 0; font-size:11px;">
-            تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة :
-          </p>
-          <div style="display:flex; justify-content:center; margin:2px 0;">
-            <div style="border:2px solid #000; padding:4px 15px; font-size:1rem; font-weight:900; min-width:150px; text-align:center; background:#f9f9f9;">
-              ..................................................................
-            </div>
-          </div>
-          <p style="text-align:center; font-weight:bold; text-decoration:underline; font-size:10px;">وحسب مواعيد جدول امتحانات الصفوف الموجودة بالمدرسة</p>
-        </div>
-        <p style="text-align:right; font-weight:bold; margin-top:2px; font-size:11px;">ويراعى الالتزام بما يلى :</p>
-        <ol class="instructions-list" dir="rtl" style="margin-right:20px; margin-bottom:2px;">
-          ${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}
-        </ol>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
-          <div style="text-align:right; font-size:11px; padding-right:5px;">
-            <p style="font-weight:bold; text-decoration:underline; margin-bottom:4px;">توقيع الموجه</p>
-            <p style="margin-bottom:2px;">الاسم : ..........................................</p>
-            <p style="margin-bottom:2px;">الوظيفة : .......................................</p>
-            <p style="margin-bottom:2px;">رقم التليفون : .................................</p>
-            <p style="margin-bottom:2px;">التوقيع : ........................................</p>
-          </div>
-          ${renderManagersTable(cfg)}
-        </div>
-        ${renderSignatures(cfg)}
+    const page = `
+      ${renderHeader(cfg, 'خطاب تكليف الموجه المقيم', `لمتابعة امتحانات النقل | ${cfg.semester} ${cfg.academicYear}`)}
+      ${renderOfficials(cfg)}
+      <div class="sup-card">
+        <p style="font-weight:700; margin-bottom:6px;">السيد / <span style="border-bottom:1px dashed #000; padding:0 40px;"></span> &nbsp;&nbsp; توجيه: <span style="border-bottom:1px dashed #000; padding:0 40px;"></span></p>
+        <p style="text-align:center; font-weight:700; margin:8px 0;">تم تكليفكم لمتابعة امتحانات ${cfg.semester} ${cfg.academicYear} لصفوف النقل بمدرسة:</p>
+        <p style="text-align:center;"><span class="school-box" style="min-width:200px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
       </div>
+      <p style="font-weight:700; margin:6px 0;">ويراعى الالتزام بما يلى:</p>
+      <ol class="instructions">${INSTRUCTIONS.map(i => `<li>${i}</li>`).join('')}</ol>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px;">
+        <div style="font-size:11px;">
+          <p style="font-weight:700; text-decoration:underline;">توقيع الموجه</p>
+          <p>الاسم: .................................</p><p>الوظيفة: ................................</p>
+          <p>رقم التليفون: ...........................</p><p>التوقيع: .................................</p>
+        </div>
+        ${renderManagersTable(cfg)}
+      </div>
+      ${renderSignatures(cfg)}
     `;
-    openPrintWindow('خطاب فارغ', html);
+    try {
+      await generatePDF(wrapPages([page]), 'خطاب_تكليف_فارغ.pdf', setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
 
   return (
@@ -301,22 +282,30 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* ═══════ PRINT BUTTONS ═══════ */}
-          <div className="glass-card glass-card-accent" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Printer size={18} color="#22d3ee" />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9', marginLeft: 8 }}>طباعة التقارير:</span>
-            <button className="btn-primary" onClick={printIndividualLetters} style={{ padding: '8px 16px', fontSize: 12 }}>
-              <Mail size={14} /> خطابات التكليف الفردية
-            </button>
-            <button className="btn-primary" onClick={printGuidanceSheets} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg, #a78bfa, #818cf8)' }}>
-              <BookOpen size={14} /> كشوف حسب التوجيه
-            </button>
-            <button className="btn-primary" onClick={printStageSheets} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg, #60a5fa, #3b82f6)' }}>
-              <Layers size={14} /> كشوف حسب المرحلة
-            </button>
-            <button className="btn-secondary" onClick={printBlankLetter} style={{ padding: '8px 16px', fontSize: 12 }}>
-              <FileSpreadsheet size={14} /> خطاب فارغ
-            </button>
+          {/* ═══════ PDF BUTTONS ═══════ */}
+          <div className="glass-card glass-card-accent" style={{ padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: pdfProgress ? 12 : 0 }}>
+              <Download size={18} color="#22d3ee" />
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9' }}>إنشاء تقارير PDF:</span>
+              <button className="btn-primary" onClick={printIndividualLetters} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12 }}>
+                <Mail size={14} /> خطابات التكليف
+              </button>
+              <button className="btn-primary" onClick={printGuidanceSheets} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg,#a78bfa,#818cf8)' }}>
+                <BookOpen size={14} /> كشوف التوجيه
+              </button>
+              <button className="btn-primary" onClick={printStageSheets} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg,#60a5fa,#3b82f6)' }}>
+                <Layers size={14} /> كشوف المراحل
+              </button>
+              <button className="btn-secondary" onClick={printBlankLetter} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12 }}>
+                <FileSpreadsheet size={14} /> خطاب فارغ
+              </button>
+            </div>
+            {pdfProgress && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#22d3ee', fontSize: 13 }}>
+                <div style={{ width: 16, height: 16, border: '2px solid #22d3ee', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                {pdfProgress}
+              </div>
+            )}
           </div>
 
           {/* ═══════ SUMMARY CARDS ═══════ */}

@@ -1,90 +1,6 @@
-/* ═══════════════════════════════════════════════════════
-   Print Styles — shared across all printable reports
-   ═══════════════════════════════════════════════════════ */
-
-export const PRINT_STYLES = `
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Cairo', 'Arial', sans-serif; direction:rtl; color:#000; background:#fff; }
-
-  .report-page {
-    width: 210mm; min-height: 297mm; padding: 10mm 14mm;
-    margin: 0 auto; position: relative;
-    page-break-after: always;
-  }
-  .report-page:last-child { page-break-after: auto; }
-
-  /* ─── Header ─── */
-  .report-header {
-    display:flex; justify-content:space-between; align-items:flex-start;
-    padding-bottom:10px; margin-bottom:10px;
-    border-bottom: 3px double #1e3a5f;
-  }
-  .report-title-box {
-    text-align:center; border:2px solid #1e3a5f;
-    padding:6px 14px; border-radius:4px;
-    background: linear-gradient(180deg, #eef2f7 0%, #fff 100%);
-    flex: 1; margin: 0 12px;
-  }
-
-  /* ─── Officials Boxes ─── */
-  .officials-box {
-    border:1.5px solid #333; padding:3px 10px; font-size:11px;
-    display:flex; justify-content:space-between; align-items:center;
-    margin-bottom: 3px;
-  }
-
-  /* ─── Data Table (repeating header on print) ─── */
-  .print-table {
-    width: 100%; border-collapse: collapse;
-    border: 2px solid #1e3a5f;
-    font-size: 11px;
-    margin-top: 10px;
-  }
-  .print-table thead {
-    display: table-header-group; /* 🔑 Repeats header on every printed page */
-  }
-  .print-table thead tr th {
-    background: #1e3a5f; color: #fff;
-    padding: 7px 6px; border: 1px solid #1e3a5f;
-    text-align: center; font-weight: 700; font-size: 11px;
-  }
-  .print-table tbody tr td {
-    padding: 6px 8px; border: 1px solid #ccc;
-    text-align: center; vertical-align: middle;
-  }
-  .print-table tbody tr:nth-child(even) { background: #f5f7fa; }
-  .print-table tbody tr { page-break-inside: avoid; }
-
-  /* ─── Stage color badges ─── */
-  .badge-primary { background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:700; }
-  .badge-prep    { background:#ede9fe; color:#5b21b6; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:700; }
-  .badge-sec     { background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:700; }
-
-  /* ─── Signature Block ─── */
-  .signature-block { text-align:center; min-width:150px; }
-  .signatures-row {
-    margin-top:22px; display:flex; justify-content:space-between; align-items:flex-end;
-  }
-
-  /* ─── Instructions ─── */
-  .instructions-list { margin-right:18px; font-size:10px; line-height:1.6; }
-  .instructions-list li { margin-bottom:3px; }
-
-  /* ─── Managers phone table ─── */
-  .managers-table { width:100%; border-collapse:collapse; border:1.5px solid #000; }
-  .managers-table th { background:#e9ecef; padding:3px 6px; font-size:10px; border:1px solid #ccc; }
-  .managers-table td { padding:3px 6px; font-size:10px; border:1px solid #eee; }
-
-  /* ─── Print media overrides ─── */
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { margin: 8mm; size: A4 portrait; }
-    .report-page { margin: 0; }
-    .no-print { display: none !important; }
-  }
-</style>`;
+/* ═══════════════════════════════════════════════════════════════════════
+   PDF Report Generator — uses html2pdf.js with proper Arabic/RTL support
+   ═══════════════════════════════════════════════════════════════════════ */
 
 export interface ReportSettings {
   governorate: string;
@@ -132,131 +48,371 @@ export function settingsToReport(s: Record<string, string>): ReportSettings {
   };
 }
 
+// ─── Shared A4 styles embedded in each report ────────────────────────────
+export const BASE_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cairo', 'Arial', sans-serif;
+    direction: rtl;
+    color: #111;
+    background: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* ─── Page layout ─── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 14mm 16mm 12mm;
+    margin: 0 auto;
+    position: relative;
+    background: #fff;
+  }
+
+  /* ─── Header ─── */
+  .rpt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px double #1a3a6e;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+  }
+  .rpt-title-box {
+    text-align: center;
+    border: 2px solid #1a3a6e;
+    padding: 7px 16px;
+    border-radius: 5px;
+    background: linear-gradient(180deg, #eef3fb 0%, #fff 100%);
+    flex: 1;
+    margin: 0 14px;
+  }
+  .rpt-title { font-size: 17px; font-weight: 900; color: #1a3a6e; }
+  .rpt-subtitle { font-size: 11px; color: #555; margin-top: 3px; }
+  .rpt-logo {
+    width: 72px; height: 72px;
+    border: 2px solid #1a3a6e;
+    display: flex; align-items: center; justify-content: center;
+    background: #f5f7fb;
+  }
+  .rpt-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+  /* ─── Officials strip ─── */
+  .officials { margin: 8px 0; }
+  .official-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1.5px solid #333;
+    padding: 4px 12px;
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  .official-name { font-weight: 700; }
+  .official-title { color: #555; }
+  .official-phone { direction: ltr; font-weight: 600; color: #1a3a6e; }
+
+  /* ─── DATA TABLE — header repeats on every page ─── */
+  .data-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #1a3a6e;
+    margin-top: 12px;
+  }
+  .data-tbl thead {
+    display: table-header-group;  /* 🔑 Repeat on every printed page */
+  }
+  .data-tbl thead th {
+    background: #1a3a6e;
+    color: #fff;
+    padding: 8px 7px;
+    border: 1px solid #1a3a6e;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .data-tbl tbody td {
+    padding: 7px 8px;
+    border: 1px solid #ccc;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 11.5px;
+  }
+  .data-tbl tbody tr:nth-child(even) { background: #f4f7fc; }
+  .data-tbl tbody tr { page-break-inside: avoid; }
+
+  /* ─── Stage badges ─── */
+  .badge { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .badge-p { background: #dbeafe; color: #1d4ed8; }
+  .badge-e { background: #ede9fe; color: #6d28d9; }
+  .badge-s { background: #fef3c7; color: #92400e; }
+
+  /* ─── Section title ─── */
+  .section-title {
+    font-size: 13px; font-weight: 800; color: #1a3a6e;
+    margin: 10px 0 6px;
+    padding-right: 8px;
+    border-right: 4px solid #1a3a6e;
+  }
+
+  /* ─── Instructions ─── */
+  .instructions { margin-right: 16px; font-size: 10.5px; line-height: 1.65; }
+  .instructions li { margin-bottom: 3px; }
+
+  /* ─── Signature row ─── */
+  .sig-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 24px;
+  }
+  .sig-block { text-align: center; min-width: 160px; }
+  .sig-name { font-weight: 900; font-size: 13px; margin-top: 3px; }
+  .sig-title { font-weight: 700; font-size: 11px; }
+  .sig-line {
+    margin-top: 28px;
+    border-top: 1px solid #000;
+    padding-top: 4px;
+    font-size: 10px;
+    color: #555;
+  }
+
+  /* ─── Managers table ─── */
+  .mgr-tbl {
+    width: 100%; border-collapse: collapse;
+    border: 1.5px solid #000; margin-top: 4px;
+    font-size: 10.5px;
+  }
+  .mgr-tbl th { background: #e5eaf4; padding: 4px 8px; border: 1px solid #ccc; font-weight: 700; }
+  .mgr-tbl td { padding: 4px 8px; border: 1px solid #eee; }
+
+  /* ─── Supervisor card in letter ─── */
+  .sup-card {
+    border: 2px solid #1a3a6e;
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 4px;
+    background: #f9fbff;
+  }
+  .school-box {
+    display: inline-block;
+    border: 2px solid #1a3a6e;
+    padding: 4px 20px;
+    font-size: 14px;
+    font-weight: 900;
+    background: #f0f4fb;
+    border-radius: 4px;
+  }
+
+  /* ─── Notes box ─── */
+  .notes-box {
+    border: 1.5px solid #000;
+    padding: 8px 14px;
+    font-size: 10.5px;
+    line-height: 1.7;
+  }
+  .notes-box p { margin-bottom: 3px; }
+
+  @media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+`;
+
+// ─── Header block ────────────────────────────────────────────────────────
 export function renderHeader(cfg: ReportSettings, title: string, subtitle?: string): string {
-  const today = new Date().toLocaleDateString('ar-EG');
+  const today = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
   return `
-    <div class="report-header">
-      <div style="text-align:right; min-width:140px;">
-        <p style="font-weight:900; font-size:13px; margin-bottom:2px;">${cfg.governorate}</p>
-        <p style="font-weight:800; font-size:12px; margin-bottom:4px;">${cfg.directorate}</p>
-        <p style="font-size:10px; color:#555;">التاريخ: ${today}</p>
+    <div class="rpt-header">
+      <div style="min-width:140px; text-align:right;">
+        <div style="font-weight:900; font-size:14px;">${cfg.governorate}</div>
+        <div style="font-weight:800; font-size:12px; margin-top:2px;">${cfg.directorate}</div>
+        <div style="font-size:10px; color:#555; margin-top:4px;">التاريخ: ${today}</div>
       </div>
-      <div class="report-title-box">
-        <div style="font-weight:900; font-size:16px; margin-bottom:3px;">${title}</div>
-        ${subtitle ? `<div style="font-size:12px; color:#444; margin-top:2px;">${subtitle}</div>` : ''}
-        <div style="font-size:10px; color:#666; margin-top:2px;">العام الدراسي: ${cfg.academicYear}</div>
+      <div class="rpt-title-box">
+        <div class="rpt-title">${title}</div>
+        ${subtitle ? `<div class="rpt-subtitle">${subtitle}</div>` : ''}
+        <div style="font-size:10px; color:#666; margin-top:2px;">العام الدراسي: ${cfg.academicYear} | ${cfg.semester}</div>
       </div>
       <div style="text-align:center; min-width:80px;">
-        <div style="width:70px; height:70px; border:2px solid #1e3a5f; display:flex; align-items:center; justify-content:center; background:#f8f9fa; margin:0 auto;">
-          <img src="/logo.png" style="width:100%; height:100%; object-fit:contain;" alt="شعار" />
+        <div class="rpt-logo">
+          <img src="/logo.png" alt="شعار" />
         </div>
-        <p style="font-size:8px; margin-top:2px; font-weight:bold;">إدارة العمرانية</p>
+        <div style="font-size:9px; font-weight:700; margin-top:3px;">إدارة العمرانية</div>
       </div>
     </div>
   `;
 }
 
+// ─── Officials strip ──────────────────────────────────────────────────────
 export function renderOfficials(cfg: ReportSettings): string {
-  return `
-    <div style="margin-top:5px;">
-      <div class="officials-box">
-        <span style="font-weight:700;">${cfg.gm_name}</span>
-        <span style="color:#555;">${cfg.gm_title}</span>
-        <span dir="ltr" style="color:#1e3a5f; font-weight:600;">${cfg.gm_phone}</span>
-      </div>
-      <div class="officials-box">
-        <span style="font-weight:700;">${cfg.deputy_name}</span>
-        <span style="color:#555;">${cfg.deputy_title}</span>
-        <span dir="ltr" style="color:#1e3a5f; font-weight:600;">${cfg.deputy_phone}</span>
-      </div>
-      <div class="officials-box">
-        <span style="font-weight:700;">${cfg.security_name}</span>
-        <span style="color:#555;">${cfg.security_title}</span>
-        <span dir="ltr" style="color:#1e3a5f; font-weight:600;">${cfg.security_phone}</span>
-      </div>
-    </div>
-  `;
-}
-
-export function renderManagersTable(cfg: ReportSettings): string {
-  const managers = [
-    { stage: 'التعليم الابتدائي', name: cfg.mgr_primary, phone: cfg.mgr_primary_phone },
-    { stage: 'التعليم الإعدادي', name: cfg.mgr_prep, phone: cfg.mgr_prep_phone },
-    { stage: 'التعليم الثانوي', name: cfg.mgr_sec, phone: cfg.mgr_sec_phone },
+  const rows = [
+    { name: cfg.gm_name, title: cfg.gm_title, phone: cfg.gm_phone },
+    { name: cfg.deputy_name, title: cfg.deputy_title, phone: cfg.deputy_phone },
+    { name: cfg.security_name, title: cfg.security_title, phone: cfg.security_phone },
   ];
   return `
-    <table class="managers-table" style="margin-top:5px;">
+    <div class="officials">
+      ${rows.map(r => `
+        <div class="official-row">
+          <span class="official-name">${r.name}</span>
+          <span class="official-title">${r.title}</span>
+          <span class="official-phone" dir="ltr">${r.phone}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ─── Managers phone table ─────────────────────────────────────────────────
+export function renderManagersTable(cfg: ReportSettings): string {
+  return `
+    <table class="mgr-tbl">
       <thead><tr>
         <th>المرحلة</th><th>الاسم</th><th>التليفون</th>
       </tr></thead>
       <tbody>
-        ${managers.map(m => `
-          <tr>
-            <td style="font-weight:600;">${m.stage}</td>
-            <td>${m.name}</td>
-            <td dir="ltr">${m.phone}</td>
-          </tr>
-        `).join('')}
+        <tr><td style="font-weight:600;">الابتدائية</td><td>${cfg.mgr_primary}</td><td dir="ltr">${cfg.mgr_primary_phone}</td></tr>
+        <tr><td style="font-weight:600;">الإعدادية</td><td>${cfg.mgr_prep}</td><td dir="ltr">${cfg.mgr_prep_phone}</td></tr>
+        <tr><td style="font-weight:600;">الثانوية</td><td>${cfg.mgr_sec}</td><td dir="ltr">${cfg.mgr_sec_phone}</td></tr>
       </tbody>
     </table>
   `;
 }
 
+// ─── Signatures row ───────────────────────────────────────────────────────
 export function renderSignatures(cfg: ReportSettings): string {
   return `
-    <div class="signatures-row">
-      <div class="signature-block">
-        <p style="font-weight:700; font-size:11px;">يعتمد،، الموجه الأول للمادة</p>
-        <p style="margin-top:28px; border-top:1px solid #000; padding-top:3px; font-size:10px;">التوقيع</p>
+    <div class="sig-row">
+      <div class="sig-block">
+        <div class="sig-title">يعتمد،، الموجه الأول للمادة</div>
+        <div class="sig-line">التوقيع</div>
       </div>
-      <div class="signature-block">
-        <p style="font-weight:700; font-size:11px;">${cfg.deputy_title}</p>
-        <p style="font-weight:900; font-size:13px; margin-top:4px;">${cfg.deputy_name}</p>
-        <p style="margin-top:24px; border-top:1px solid #000; padding-top:3px; font-size:10px;">التوقيع</p>
+      <div class="sig-block">
+        <div class="sig-title">${cfg.deputy_title}</div>
+        <div class="sig-name">${cfg.deputy_name}</div>
+        <div class="sig-line">التوقيع</div>
       </div>
-      <div class="signature-block">
-        <p style="font-weight:700; font-size:11px;">${cfg.gm_title}</p>
-        <p style="font-weight:900; font-size:13px; margin-top:4px;">${cfg.gm_name}</p>
-        <p style="margin-top:24px; border-top:1px solid #000; padding-top:3px; font-size:10px;">التوقيع</p>
+      <div class="sig-block">
+        <div class="sig-title">${cfg.gm_title}</div>
+        <div class="sig-name">${cfg.gm_name}</div>
+        <div class="sig-line">التوقيع</div>
       </div>
     </div>
   `;
 }
 
+// ─── GM signature block ───────────────────────────────────────────────────
 export function renderGMSignature(cfg: ReportSettings): string {
   return `
-    <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px;">
-      <div style="border:1.5px solid #000; padding:8px 12px; font-size:10.5px; flex:1;">
-        <p style="font-weight:700; margin-bottom:5px;">ملاحظات هامة:</p>
-        <p style="margin:2px 0;">• يُرجى الالتزام بالمدرسة المحددة.</p>
-        <p style="margin:2px 0;">• التواصل الفوري مع غرفة العمليات عند أي طارئ.</p>
-        <p style="margin:2px 0;">• الحضور قبل بدء الامتحان بوقت كافٍ.</p>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-top:18px;">
+      <div class="notes-box" style="flex:1;">
+        <p><strong>ملاحظات هامة:</strong></p>
+        <p>• يُرجى الالتزام التام بالمدرسة المحددة.</p>
+        <p>• التواصل الفوري مع غرفة العمليات عند أي طارئ.</p>
+        <p>• الحضور قبل بدء الامتحان بوقت كافٍ.</p>
       </div>
-      <div class="signature-block" style="min-width:180px;">
-        <p style="font-weight:700; font-size:11px;">يعتمد،،</p>
-        <p style="font-weight:900; font-size:12px; margin:4px 0;">${cfg.gm_title}</p>
-        <p style="font-weight:800; font-size:11px; margin-top:4px;">${cfg.gm_name}</p>
-        <p style="margin-top:28px; border-top:1px solid #000; padding-top:3px; font-size:10px;">التوقيع</p>
+      <div class="sig-block" style="min-width:190px;">
+        <div class="sig-title">يعتمد،،</div>
+        <div style="font-weight:800; font-size:12px; margin:4px 0;">${cfg.gm_title}</div>
+        <div class="sig-name">${cfg.gm_name}</div>
+        <div class="sig-line">التوقيع</div>
       </div>
     </div>
   `;
 }
 
+// ─── Official instructions ────────────────────────────────────────────────
 export const INSTRUCTIONS = [
   'التزام الموجه المقيم بتواجده مع مدير المدرسة لاستلام مظاريف الأسئلة من المطبعة السرية وتأمين سرية الامتحانات.',
-  'الالتزام بالحضور قبل فتح مظاريف الأسئلة بوقت كاف مع مدير المدرسة ومسئوليته حتى التسليم إلى الكنترول.',
-  'التواجد بالمدرسة قبل بدء الامتحان بوقت كاف للتأكد من استيفاء جميع الإجراءات المتصلة بالامتحان وقبل فتح مظاريف الأسئلة مع مدير المدرسة ومسئوليته حتى التسليم إلى الكنترول.',
-  'الالتزام بجدول الامتحان كما هو وارد من الإدارة التعليمية وعدم مخالفته مطلقا.',
-  'عمل تقرير يومي عن سير الامتحان مرفق به نسخة من أسئلة المواد التي تم تأدية الامتحان فيها في ذات اليوم وكذلك نسخة من الإملاء لمادة اللغة العربية ونسخة من أسئلة الاستماع للغة الإنجليزية بعد انتهاء الامتحانات.',
-  'عمل تقرير شامل في نهاية الامتحانات عن سير الامتحان بالمدرسة وتسليم التقارير اليومية والتقرير الشامل للمراحل في آخر يوم من أيام الامتحان لكل مرحلة.',
-  'الالتزام بخروج الطلاب آخر الوقت وعدم مغادرة المدرسة إلا بعد خروج آخر طالب ومتابعة ذلك مع مدير المدرسة ومراقبي الأدوار.',
-  'التواصل مع غرفة العمليات بالإدارة على الفور في حال حدوث مخالفة أو أي عارض ذو شأن أثناء سير الامتحان اليومي أو في حال وجود زائر من خارج الإدارة سواء من المديرية التعليمية أو الوزارة حيث أن ذلك سيتم تدوينه في التقرير اليومي للإدارة.',
+  'الالتزام بالحضور قبل فتح مظاريف الأسئلة بوقت كافٍ مع مدير المدرسة ومسئوليته حتى التسليم إلى الكنترول.',
+  'التواجد بالمدرسة قبل بدء الامتحان بوقت كافٍ للتأكد من استيفاء جميع الإجراءات المتصلة بالامتحان.',
+  'الالتزام بجدول الامتحان كما هو وارد من الإدارة التعليمية وعدم مخالفته مطلقاً.',
+  'عمل تقرير يومي عن سير الامتحان مرفق به نسخة من أسئلة المواد التي تم تأدية الامتحان فيها في ذات اليوم.',
+  'عمل تقرير شامل في نهاية الامتحانات عن سير الامتحان بالمدرسة وتسليمه في آخر يوم من أيام الامتحان.',
+  'الالتزام بخروج الطلاب آخر الوقت وعدم مغادرة المدرسة إلا بعد خروج آخر طالب.',
+  'التواصل مع غرفة العمليات بالإدارة على الفور في حال حدوث مخالفة أو أي عارض ذو شأن أثناء الامتحان.',
 ];
 
+// ─── Core: generate PDF using html2pdf.js ────────────────────────────────
+export async function generatePDF(
+  bodyHtml: string,
+  filename: string,
+  onProgress?: (msg: string) => void
+): Promise<void> {
+  // Dynamic import — html2pdf.js is client-side only
+  const html2pdf = (await import('html2pdf.js')).default;
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <style>${BASE_STYLES}</style>
+    </head>
+    <body>${bodyHtml}</body>
+    </html>
+  `;
+  // We need just the body content
+  const container = document.createElement('div');
+  container.style.direction = 'rtl';
+  container.style.fontFamily = "'Cairo', Arial, sans-serif";
+  container.innerHTML = bodyHtml;
+
+  // Apply inline base styles so html2pdf captures them
+  const styleEl = document.createElement('style');
+  styleEl.textContent = BASE_STYLES;
+  container.prepend(styleEl);
+
+  document.body.appendChild(container);
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+
+  onProgress?.('جارٍ إنشاء ملف PDF...');
+
+  try {
+    await html2pdf()
+      .set({
+        margin: [8, 8, 8, 8],           // mm
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,                      // High DPI for sharp text
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          allowTaint: true,
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait',
+          compress: true,
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      })
+      .from(container)
+      .save();
+  } finally {
+    document.body.removeChild(container);
+    onProgress?.('');
+  }
+}
+
+// ─── Convenience: open in browser print dialog (fallback) ────────────────
 export function openPrintWindow(title: string, html: string) {
   const w = window.open('', '_blank', 'width=1050,height=850');
   if (!w) { alert('يرجى السماح بالنوافذ المنبثقة للطباعة'); return; }
-  w.document.write(`<!DOCTYPE html><html lang="ar"><head><meta charset="UTF-8"><title>${title}</title>${PRINT_STYLES}</head><body>${html}</body></html>`);
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${title}</title><style>${BASE_STYLES}</style></head><body>${html}</body></html>`);
   w.document.close();
-  setTimeout(() => { w.focus(); w.print(); }, 600);
+  setTimeout(() => { w.focus(); w.print(); }, 700);
+}
+
+// ─── Wraps one or more page divs ─────────────────────────────────────────
+export function wrapPages(pages: string[]): string {
+  return pages.map(p => `<div class="page">${p}</div>`).join('\n');
 }
