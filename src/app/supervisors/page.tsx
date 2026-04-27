@@ -227,13 +227,13 @@ export default function SupervisorsPage() {
                     </td>
                     <td>
                       <button onClick={() => handleToggleActive(sup)} style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
+                        background: sup.is_active ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)',
+                        border: 'none', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 5,
                         color: sup.is_active ? '#34d399' : '#f87171',
                         fontSize: 12, fontWeight: 600, padding: '4px 8px',
                         borderRadius: 6,
-                        background: sup.is_active ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)',
-                      } as any}>
+                      }}>
                         {sup.is_active ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                         {sup.is_active ? 'متاح' : 'غير متاح'}
                       </button>
