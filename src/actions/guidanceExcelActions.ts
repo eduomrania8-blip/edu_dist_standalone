@@ -98,7 +98,25 @@ export async function generateGuidanceTemplate() {
   XLSX.utils.book_append_sheet(workbook, supSheet, 'الموجهين');
 
   // --- Sheet 2: الرغبات ---
-  const wishHeader = ['كود الموجه (الرقم القومي)', 'اسم الموجه', 'رغبة 1 (كود المدرسة)', 'رغبة 2 (كود المدرسة)', 'رغبة 3 (كود المدرسة)', 'رغبة 4 (كود المدرسة)'];
+  const wishHeader = [
+    'كود الموجه (الرقم القومي)', 'اسم الموجه',
+    'كود المدرسة 1', 'اسم المدرسة 1',
+    'كود المدرسة 2', 'اسم المدرسة 2',
+    'كود المدرسة 3', 'اسم المدرسة 3',
+    'كود المدرسة 4', 'اسم المدرسة 4',
+  ];
+
+  // Build school code->name map
+  const { data: allSchoolsForNames } = await supabase.from('schools').select('id, school_code, school_name');
+  const schoolIdToName: Record<string, string> = {};
+  const schoolCodeToName: Record<string, string> = {};
+  if (allSchoolsForNames) {
+    allSchoolsForNames.forEach(s => {
+      schoolIdToName[s.id] = s.school_name;
+      schoolCodeToName[s.school_code] = s.school_name;
+    });
+  }
+
   const wishRows: any[][] = [wishHeader];
   if (supervisors && supervisors.length > 0) {
     supervisors.forEach(s => {
@@ -106,20 +124,24 @@ export async function generateGuidanceTemplate() {
       wishRows.push([
         s.national_id || '',
         s.name,
-        w.wish_1 || '',
-        w.wish_2 || '',
-        w.wish_3 || '',
-        w.wish_4 || ''
+        w.wish_1 || '', schoolCodeToName[w.wish_1] || '',
+        w.wish_2 || '', schoolCodeToName[w.wish_2] || '',
+        w.wish_3 || '', schoolCodeToName[w.wish_3] || '',
+        w.wish_4 || '', schoolCodeToName[w.wish_4] || '',
       ]);
     });
   } else {
     for (let i = 0; i < 5; i++) {
-      wishRows.push(['', '', '', '', '', '']);
+      wishRows.push(['', '', '', '', '', '', '', '', '', '']);
     }
   }
   const wishSheet = XLSX.utils.aoa_to_sheet(wishRows);
   wishSheet['!cols'] = [
-    { wch: 20 }, { wch: 35 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }
+    { wch: 20 }, { wch: 35 },
+    { wch: 15 }, { wch: 30 },
+    { wch: 15 }, { wch: 30 },
+    { wch: 15 }, { wch: 30 },
+    { wch: 15 }, { wch: 30 },
   ];
   XLSX.utils.book_append_sheet(workbook, wishSheet, 'الرغبات');
 

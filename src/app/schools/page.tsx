@@ -4,11 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSchools, createSchool, updateSchool, deleteSchool, getAllSupervisors
+  getAllSchools, createSchool, updateSchool, deleteSchool
 } from '@/services/distributionService';
-import {
-  School, SchoolFormData, STAGES, SCHOOL_TYPES, SPECIALIZATIONS, Supervisor
-} from '@/types/database';
+import { School, SchoolFormData, STAGES, SCHOOL_TYPES } from '@/types/database';
 
 const EMPTY_FORM: SchoolFormData = {
   school_code: '',
@@ -22,12 +20,26 @@ const EMPTY_FORM: SchoolFormData = {
   is_active: true,
 };
 
+const stageColor: Record<string, string> = {
+  'ابتدائي': 'badge-cyan',
+  'إعدادي': 'badge-purple',
+  'ثانوي': 'badge-amber',
+};
+
+const typeColor: Record<string, string> = {
+  'حكومي': 'badge-green',
+  'لغات': 'badge-blue',
+  'خاص': 'badge-rose',
+  'تجريبي': 'badge-amber',
+  'فني': 'badge-purple',
+};
+
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<School[]>([]);
-  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<School | null>(null);
   const [form, setForm] = useState<SchoolFormData>(EMPTY_FORM);
@@ -36,9 +48,8 @@ export default function SchoolsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, sups] = await Promise.all([getAllSchools(), getAllSupervisors()]);
+      const data = await getAllSchools();
       setSchools(data);
-      setSupervisors(sups);
     } catch (e: any) {
       toast.error('خطأ في تحميل البيانات: ' + e.message);
     } finally {
@@ -49,10 +60,17 @@ export default function SchoolsPage() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = schools.filter(s => {
-    const matchSearch = s.school_name.includes(search) || s.school_code.includes(search);
+    const matchSearch = s.school_name.includes(search) || s.school_code.includes(search) || (s.address ?? '').includes(search);
     const matchStage = stageFilter ? s.stage === stageFilter : true;
-    return matchSearch && matchStage;
+    const matchType = typeFilter ? s.school_type === typeFilter : true;
+    return matchSearch && matchStage && matchType;
   });
+
+  // Stats by stage
+  const stageCounts = STAGES.map(st => ({
+    label: st,
+    count: schools.filter(s => s.stage === st).length,
+  }));
 
   const openCreate = () => {
     setEditing(null);
@@ -78,17 +96,18 @@ export default function SchoolsPage() {
 
   const handleSave = async () => {
     if (!form.school_code.trim() || !form.school_name.trim()) {
-      toast.error('كود المدرسة والاسم مطلوبان');
+      toast.error('كود المقر والاسم مطلوبان');
       return;
     }
     setSaving(true);
     try {
+      const payload = { ...form, mandatory_supervisor_id: form.mandatory_supervisor_id || undefined };
       if (editing) {
-        await updateSchool(editing.id, form);
-        toast.success('تم تحديث المدرسة بنجاح');
+        await updateSchool(editing.id, payload);
+        toast.success('تم تحديث المقر بنجاح');
       } else {
-        await createSchool(form);
-        toast.success('تمت إضافة المدرسة بنجاح');
+        await createSchool(payload);
+        toast.success('تمت إضافة المقر بنجاح');
       }
       setShowModal(false);
       load();
@@ -110,45 +129,61 @@ export default function SchoolsPage() {
     }
   };
 
-  const stageColor: Record<string, string> = {
-    'ابتدائي': 'badge-cyan',
-    'إعدادي': 'badge-purple',
-    'ثانوي': 'badge-amber',
-  };
-
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">إدارة المدارس</h1>
-          <p className="page-subtitle">{schools.length} مدرسة مسجّلة</p>
+          <h1 className="page-title">مقرات اللجان</h1>
+          <p className="page-subtitle">{schools.length} مقر مسجّل</p>
         </div>
         <button className="btn-primary" onClick={openCreate}>
-          <Plus size={16} /> إضافة مدرسة
+          <Plus size={16} /> إضافة مقر
         </button>
       </div>
 
+      {/* Stage Quick Stats */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        {stageCounts.map(({ label, count }) => (
+          <button
+            key={label}
+            onClick={() => setStageFilter(stageFilter === label ? '' : label)}
+            style={{
+              padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              border: stageFilter === label ? '1px solid rgba(34,211,238,0.5)' : '1px solid rgba(255,255,255,0.08)',
+              background: stageFilter === label ? 'rgba(34,211,238,0.12)' : 'rgba(255,255,255,0.04)',
+              color: stageFilter === label ? '#22d3ee' : '#94a3b8',
+              transition: 'all 0.15s',
+            }}
+          >
+            {label} ({count})
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
-      <div className="glass-card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+      <div className="glass-card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Filter size={15} style={{ color: '#64748b', flexShrink: 0 }} />
+        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 220 }}>
           <Search size={15} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
           <input
             className="form-input"
             style={{ paddingRight: 36 }}
-            placeholder="بحث بالاسم أو الكود..."
+            placeholder="بحث بالاسم أو الكود أو العنوان..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="form-input"
-          style={{ width: 160 }}
-          value={stageFilter}
-          onChange={e => setStageFilter(e.target.value)}
-        >
+        <select className="form-input" style={{ width: 150, flex: '0 0 auto' }}
+          value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="">كل المراحل</option>
           {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <select className="form-input" style={{ width: 150, flex: '0 0 auto' }}
+          value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+          <option value="">كل الأنواع</option>
+          {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{filtered.length} نتيجة</span>
       </div>
 
       {/* Table */}
@@ -157,64 +192,56 @@ export default function SchoolsPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th>#</th>
                 <th>الكود</th>
-                <th>اسم المدرسة</th>
+                <th>اسم المقر / المدرسة</th>
                 <th>المرحلة</th>
                 <th>النوع</th>
-                <th>التخصص</th>
-                <th>الموجه الإجباري</th>
-                <th>الاحتياج</th>
+                <th>العنوان</th>
+                <th>الموجهين المطلوبين</th>
                 <th>الإجراءات</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
-                      <td key={j}><div className="skeleton" style={{ height: 14, borderRadius: 4 }} /></td>
-                    ))}
-                  </tr>
+                  <tr key={i}>{Array.from({ length: 8 }).map((_, j) => (
+                    <td key={j}><div className="skeleton" style={{ height: 14, borderRadius: 4 }} /></td>
+                  ))}</tr>
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: 48, color: '#475569' }}>
-                    لا توجد مدارس مطابقة
+                    لا توجد مقرات مطابقة
                   </td>
                 </tr>
               ) : (
-                filtered.map(school => (
+                filtered.map((school, idx) => (
                   <tr key={school.id}>
+                    <td style={{ color: '#64748b', fontSize: 12 }}>{idx + 1}</td>
                     <td style={{ fontFamily: 'monospace', color: '#94a3b8', fontSize: 13 }}>{school.school_code}</td>
                     <td style={{ fontWeight: 600 }}>{school.school_name}</td>
                     <td><span className={`badge ${stageColor[school.stage] ?? 'badge-blue'}`}>{school.stage}</span></td>
-                    <td style={{ color: '#94a3b8', fontSize: 13 }}>{school.school_type}</td>
-                    <td style={{ color: '#94a3b8', fontSize: 13 }}>{school.specialization || '—'}</td>
-                    <td>
-                      {school.mandatory_supervisor_id ? (
-                        <span className="badge badge-purple">
-                          {supervisors.find(s => s.id === school.mandatory_supervisor_id)?.name || 'إجباري'}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#475569', fontSize: 13 }}>—</span>
-                      )}
+                    <td><span className={`badge ${typeColor[school.school_type] ?? 'badge-blue'}`}>{school.school_type}</span></td>
+                    <td style={{ color: '#64748b', fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {school.address || '—'}
                     </td>
                     <td>
-                      <span className="badge badge-green">{school.needs_count ?? 1} موجه</span>
+                      <span className="badge badge-green">{school.needs_count ?? 1}</span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={() => openEdit(school)}
                           style={{
-                            padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
+                            padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)',
                             background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer',
                             fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
                           }}
                         >
                           <Pencil size={12} /> تعديل
                         </button>
-                        <button className="btn-danger" onClick={() => handleDelete(school)}>
+                        <button className="btn-danger" style={{ padding: '5px 9px' }} onClick={() => handleDelete(school)}>
                           <Trash2 size={12} />
                         </button>
                       </div>
@@ -230,68 +257,47 @@ export default function SchoolsPage() {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
+          <div className="modal-box" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 20px', fontSize: 17, fontWeight: 800 }}>
-              {editing ? 'تعديل مدرسة' : 'إضافة مدرسة جديدة'}
+              {editing ? 'تعديل مقر اللجنة' : 'إضافة مقر جديد'}
             </h3>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
-                <label className="form-label">كود المدرسة *</label>
+                <label className="form-label">كود المقر *</label>
                 <input className="form-input" value={form.school_code}
                   onChange={e => setForm(f => ({ ...f, school_code: e.target.value }))} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">اسم المدرسة *</label>
+                <label className="form-label">اسم المدرسة / المقر *</label>
                 <input className="form-input" value={form.school_name}
                   onChange={e => setForm(f => ({ ...f, school_name: e.target.value }))} />
               </div>
               <div>
-                <label className="form-label">المرحلة</label>
+                <label className="form-label">المرحلة الدراسية</label>
                 <select className="form-input" value={form.stage}
                   onChange={e => setForm(f => ({ ...f, stage: e.target.value as any }))}>
                   {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="form-label">النوع</label>
+                <label className="form-label">نوع المدرسة</label>
                 <select className="form-input" value={form.school_type}
                   onChange={e => setForm(f => ({ ...f, school_type: e.target.value as any }))}>
                   {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="form-label">التخصص المطلوب</label>
-                <select className="form-input" value={form.specialization}
-                  onChange={e => setForm(f => ({ ...f, specialization: e.target.value }))}>
-                  <option value="">عام (أي تخصص)</option>
-                  {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="form-label">عدد الموجهين المطلوبين</label>
-                <input className="form-input" type="number" min={1} max={10}
+                <input className="form-input" type="number" min={1} max={20}
                   value={form.needs_count}
                   onChange={e => setForm(f => ({ ...f, needs_count: Number(e.target.value) }))} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">العنوان (اختياري)</label>
-                <input className="form-input" value={form.address}
+                <input className="form-input" value={form.address ?? ''}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
               </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">الموجه الإجباري (التكليف الإداري المسبق - اختياري)</label>
-                <select className="form-input" value={form.mandatory_supervisor_id || ''}
-                  onChange={e => setForm(f => ({ ...f, mandatory_supervisor_id: e.target.value || undefined }))}>
-                  <option value="">-- بدون موجه إجباري --</option>
-                  {supervisors.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.specialty})</option>
-                  ))}
-                </select>
-                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#64748b' }}>سيقوم النظام بتسكين هذا الموجه على هذه المدرسة فوراً وتخطي خوارزمية النقاط.</p>
-              </div>
             </div>
-
             <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
               <button className="btn-secondary" onClick={() => setShowModal(false)}>إلغاء</button>
               <button className="btn-primary" onClick={handleSave} disabled={saving}>

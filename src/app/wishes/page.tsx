@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Heart, Save, Search } from 'lucide-react';
+import { Heart, Save, Search, Filter, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getAllSupervisors, getAllSchools, getAllWishes, upsertWish, deleteWish } from '@/services/distributionService';
+import { getAllSupervisors, getAllSchools, getAllWishes, upsertWish, deleteWish, getUniqueSpecialties } from '@/services/distributionService';
 import { Supervisor, School, SupervisorWish, WishFormData } from '@/types/database';
 
 export default function WishesPage() {
@@ -12,22 +12,23 @@ export default function WishesPage() {
   const [wishes, setWishes] = useState<SupervisorWish[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [specFilter, setSpecFilter] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
+  const [specs, setSpecs] = useState<string[]>([]);
 
-  // Local wish edits keyed by supervisor_id
   const [drafts, setDrafts] = useState<Record<string, WishFormData>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sups, schs, wsh] = await Promise.all([
-        getAllSupervisors(), getAllSchools(), getAllWishes(),
+      const [sups, schs, wsh, specsData] = await Promise.all([
+        getAllSupervisors(), getAllSchools(), getAllWishes(), getUniqueSpecialties(),
       ]);
       setSupervisors(sups);
       setSchools(schs);
       setWishes(wsh);
+      setSpecs(specsData);
 
-      // Init drafts from existing wishes
       const init: Record<string, WishFormData> = {};
       sups.forEach(s => {
         const existing = wsh.find(w => w.supervisor_id === s.id);
@@ -56,7 +57,6 @@ export default function WishesPage() {
     setSaving(supervisorId);
     try {
       const draft = drafts[supervisorId];
-      // Remove empty strings → undefined
       const payload: WishFormData = {
         supervisor_id: supervisorId,
         wish_1: draft.wish_1 || undefined,
@@ -87,9 +87,13 @@ export default function WishesPage() {
     }
   };
 
-  const filtered = supervisors.filter(s =>
-    s.name.includes(search) || s.specialty.includes(search)
-  );
+  // Strict filtering — specialty must match exactly (=== not includes)
+  const filtered = supervisors.filter(s => {
+    const matchSearch = s.name.includes(search) || s.specialty.includes(search) || (s.national_id ?? '').includes(search);
+    const matchSpec = specFilter ? s.specialty === specFilter : true;
+    return matchSearch && matchSpec;
+  });
+
 
   const wishLabels = [
     { key: 'wish_1', label: 'الرغبة الأولى', color: '#34d399' },
@@ -98,29 +102,43 @@ export default function WishesPage() {
     { key: 'wish_4', label: 'الرغبة الرابعة', color: '#fbbf24' },
   ] as const;
 
+  const wishesRegistered = supervisors.filter(s => {
+    const d = drafts[s.id];
+    return d && (d.wish_1 || d.wish_2 || d.wish_3 || d.wish_4);
+  }).length;
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">إدخال الرغبات</h1>
-          <p className="page-subtitle">حدد تفضيلات كل موجه (حتى 4 رغبات مرتبة)</p>
+          <h1 className="page-title">إدخال رغبات الموجهين</h1>
+          <p className="page-subtitle">
+            {wishesRegistered} موجه سجّل رغباته من أصل {supervisors.length}
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Heart size={16} color="#f87171" />
           <span style={{ color: '#94a3b8', fontSize: 13 }}>
-            {wishes.length} موجه سجّل رغباته من أصل {supervisors.length}
+            حدد تفضيلات مقرات اللجان (حتى 4 رغبات)
           </span>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="glass-card" style={{ padding: 14, marginBottom: 16 }}>
-        <div style={{ position: 'relative', maxWidth: 360 }}>
+      {/* Filters */}
+      <div className="glass-card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Filter size={15} style={{ color: '#64748b', flexShrink: 0 }} />
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 200 }}>
           <Search size={15} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
           <input className="form-input" style={{ paddingRight: 36 }}
-            placeholder="بحث بالاسم أو التخصص..."
+            placeholder="بحث بالاسم أو الرقم القومي..."
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <select className="form-input" style={{ width: 160, flex: '0 0 auto' }}
+          value={specFilter} onChange={e => setSpecFilter(e.target.value)}>
+          <option value="">كل التخصصات</option>
+          {specs.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{filtered.length} موجه</span>
       </div>
 
       {/* Wishes Cards */}
@@ -138,7 +156,7 @@ export default function WishesPage() {
           ))
         ) : filtered.length === 0 ? (
           <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: '#475569' }}>
-            لا توجد نتائج
+            لا توجد نتائج مطابقة
           </div>
         ) : (
           filtered.map(sup => {
@@ -147,19 +165,31 @@ export default function WishesPage() {
 
             return (
               <div key={sup.id} className="glass-card" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: 10,
-                      background: 'rgba(167,139,250,0.1)',
+                      width: 38, height: 38, borderRadius: 10,
+                      background: 'rgba(167,139,250,0.12)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 13, fontWeight: 700, color: '#a78bfa',
+                      fontSize: 14, fontWeight: 700, color: '#a78bfa', flexShrink: 0,
                     }}>
                       {sup.name.charAt(0)}
                     </div>
                     <div>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#f1f5f9' }}>{sup.name}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>{sup.specialty} • {sup.stage}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>{sup.specialty}</span>
+                        {sup.stage && <span className="badge badge-cyan" style={{ fontSize: 10 }}>{sup.stage}</span>}
+                        {sup.phone && (
+                          <a href={`tel:${sup.phone}`} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            fontSize: 11, color: '#22d3ee', textDecoration: 'none',
+                          }}>
+                            <Phone size={10} />
+                            <span dir="ltr">{sup.phone}</span>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -197,7 +227,9 @@ export default function WishesPage() {
                       >
                         <option value="">— بدون رغبة —</option>
                         {schools.map(s => (
-                          <option key={s.id} value={s.id}>{s.school_name}</option>
+                          <option key={s.id} value={s.id}>
+                            {s.school_name} ({s.stage})
+                          </option>
                         ))}
                       </select>
                     </div>

@@ -19,14 +19,15 @@ import { useRouter } from 'next/navigation';
 import { logout, getUser } from '@/actions/authActions';
 
 const navItems = [
-  { href: '/',              label: 'لوحة التحكم',       icon: LayoutDashboard },
-  { href: '/schools',       label: 'إدارة المدارس',      icon: School },
-  { href: '/supervisors',   label: 'إدارة الموجهين',     icon: Users },
-  { href: '/wishes',        label: 'الرغبات',            icon: Heart },
-  { href: '/distribution',  label: 'تشغيل التوزيع',      icon: Play },
-  { href: '/reports',       label: 'التقارير',            icon: BarChart3 },
-  { href: '/users',         label: 'إدارة المستخدمين',     icon: Shield },
-  { href: '/settings',      label: 'الإعدادات',           icon: Settings },
+  { href: '/',              label: 'لوحة التحكم',          icon: LayoutDashboard },
+  { href: '/schools',       label: 'المدارس',               icon: School },
+  { href: '/supervisors',   label: 'الموجهون',              icon: Users },
+  { href: '/wishes',        label: 'الرغبات',               icon: Heart },
+  { href: '/mandatory',     label: 'التكليفات الإجبارية',    icon: Zap },
+  { href: '/distribution',  label: 'تشغيل التوزيع',         icon: Play },
+  { href: '/reports',       label: 'التقارير والطباعة',      icon: BarChart3 },
+  { href: '/users',         label: 'إدارة المستخدمين',      icon: Shield },
+  { href: '/settings',      label: 'الإعدادات',             icon: Settings },
 ];
 
 export default function Sidebar() {
