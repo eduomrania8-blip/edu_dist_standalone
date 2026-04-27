@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Zap, Save, Trash2, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getAllSchools, updateSchool, getAllSupervisors } from '@/services/distributionService';
-import { School, Supervisor, STAGES, SCHOOL_TYPES } from '@/types/database';
+import { getAllSchools, updateSchool, getAllSupervisors, getUniqueStages } from '@/services/distributionService';
+import { School, Supervisor, SCHOOL_TYPES } from '@/types/database';
 
 export default function MandatoryPage() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -13,6 +13,7 @@ export default function MandatoryPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('');
+  const [stages, setStages] = useState<string[]>([]);
   const [onlyMandatory, setOnlyMandatory] = useState(false);
 
   // local edits: schoolId -> supervisorId (or '')
@@ -21,9 +22,10 @@ export default function MandatoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schs, sups] = await Promise.all([getAllSchools(), getAllSupervisors()]);
+      const [schs, sups, stagesData] = await Promise.all([getAllSchools(), getAllSupervisors(), getUniqueStages()]);
       setSchools(schs);
       setSupervisors(sups);
+      setStages(stagesData);
       // init drafts from existing mandatory_supervisor_id
       const init: Record<string, string> = {};
       schs.forEach(s => { init[s.id] = s.mandatory_supervisor_id ?? ''; });
@@ -130,7 +132,7 @@ export default function MandatoryPage() {
         <select className="form-input" style={{ width: 150, flex: '0 0 auto' }}
           value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="">كل المراحل</option>
-          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {stages.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap' }}>
           <input

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSchools, createSchool, updateSchool, deleteSchool
+  getAllSchools, createSchool, updateSchool, deleteSchool, getUniqueStages
 } from '@/services/distributionService';
-import { School, SchoolFormData, STAGES, SCHOOL_TYPES } from '@/types/database';
+import { School, SchoolFormData, SCHOOL_TYPES } from '@/types/database';
 
 const EMPTY_FORM: SchoolFormData = {
   school_code: '',
@@ -36,6 +36,7 @@ const typeColor: Record<string, string> = {
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [stages, setStages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -48,8 +49,11 @@ export default function SchoolsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAllSchools();
+      const [data, uniqueStages] = await Promise.all([
+        getAllSchools(), getUniqueStages()
+      ]);
       setSchools(data);
+      setStages(uniqueStages);
     } catch (e: any) {
       toast.error('خطأ في تحميل البيانات: ' + e.message);
     } finally {
@@ -67,7 +71,7 @@ export default function SchoolsPage() {
   });
 
   // Stats by stage
-  const stageCounts = STAGES.map(st => ({
+  const stageCounts = stages.map(st => ({
     label: st,
     count: schools.filter(s => s.stage === st).length,
   }));
@@ -176,7 +180,7 @@ export default function SchoolsPage() {
         <select className="form-input" style={{ width: 150, flex: '0 0 auto' }}
           value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="">كل المراحل</option>
-          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {stages.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className="form-input" style={{ width: 150, flex: '0 0 auto' }}
           value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
@@ -276,7 +280,7 @@ export default function SchoolsPage() {
                 <label className="form-label">المرحلة الدراسية</label>
                 <select className="form-input" value={form.stage}
                   onChange={e => setForm(f => ({ ...f, stage: e.target.value as any }))}>
-                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {stages.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>

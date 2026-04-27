@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, CheckCircle2, XCircle, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties,
+  getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties, getUniqueStages
 } from '@/services/distributionService';
-import { Supervisor, SupervisorFormData, School, STAGES, SCHOOL_TYPES } from '@/types/database';
+import { Supervisor, SupervisorFormData, School, SCHOOL_TYPES } from '@/types/database';
 
 const EMPTY_FORM: SupervisorFormData = {
   national_id: '',
@@ -33,18 +33,21 @@ export default function SupervisorsPage() {
   const [form, setForm] = useState<SupervisorFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [specs, setSpecs] = useState<string[]>(['عام']);
+  const [stages, setStages] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sups, schs, specsData] = await Promise.all([
+      const [sups, schs, specsData, stagesData] = await Promise.all([
         getAllSupervisorsIncludingInactive(),
         getAllSchools(),
-        getUniqueSpecialties()
+        getUniqueSpecialties(),
+        getUniqueStages()
       ]);
       setSupervisors(sups);
       setSchools(schs);
       setSpecs(specsData);
+      setStages(stagesData);
     } finally {
       setLoading(false);
     }
@@ -158,7 +161,7 @@ export default function SupervisorsPage() {
         <select className="form-input" style={{ width: 140, flex: '0 0 auto' }}
           value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="">كل المراحل</option>
-          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          {stages.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className="form-input" style={{ width: 140, flex: '0 0 auto' }}
           value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
@@ -295,7 +298,7 @@ export default function SupervisorsPage() {
                 <label className="form-label">المرحلة الدراسية</label>
                 <select className="form-input" value={form.stage}
                   onChange={e => setForm(f => ({ ...f, stage: e.target.value as any }))}>
-                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {stages.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>

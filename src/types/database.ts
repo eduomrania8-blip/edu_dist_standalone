@@ -15,7 +15,7 @@ export const SPECIALIZATIONS = [
   'تربية رياضية', 'لغة فرنسية', 'كيمياء', 'فيزياء', 'أحياء',
 ] as const;
 
-export type Stage = typeof STAGES[number];
+export type Stage = string; // Allows dynamic stages like "ابتدائى - اعدادى" from DB
 export type SchoolType = typeof SCHOOL_TYPES[number];
 export type Specialization = typeof SPECIALIZATIONS[number];
 export type RunStatus = 'draft' | 'completed' | 'archived';

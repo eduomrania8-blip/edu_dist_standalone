@@ -371,8 +371,17 @@ export async function getUniqueSpecialties(): Promise<string[]> {
     .select('specialty');
   if (error) throw error;
   
-  const specs = Array.from(new Set((data ?? []).map(s => s.specialty))).sort();
+  const specs = Array.from(new Set((data ?? []).map(s => s.specialty).filter(Boolean))).sort();
   return specs.length > 0 ? specs : ['عام'];
 }
 
+export async function getUniqueStages(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('stage');
+  if (error) throw error;
+  
+  const stages = Array.from(new Set((data ?? []).map(s => s.stage).filter(Boolean))).sort();
+  return stages.length > 0 ? stages : ['إعدادي'];
+}
 
