@@ -391,7 +391,6 @@ export async function generatePDF(
           unit: 'mm',
           format: 'a4',
           orientation: 'portrait',
-          compress: true,
         },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       })
