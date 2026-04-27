@@ -225,8 +225,8 @@ export default function SettingsPage() {
                     const formData = new FormData(e.currentTarget);
                     const { importExcelData } = await import('@/actions/excelActions');
                     const res = await importExcelData(formData);
-                    if (res.success) toast.success(res.message);
-                    else toast.error(res.message);
+                    if (res.success) toast.success(String(res.message));
+                    else toast.error(String(res.message));
                   } catch (err: any) {
                     toast.error('خطأ: ' + err.message);
                   } finally {

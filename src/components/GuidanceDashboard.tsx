@@ -155,10 +155,10 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
       const formData = new FormData(e.currentTarget as HTMLFormElement);
       const res = await importGuidanceExcel(formData);
       if (res.success) {
-        toast.success(res.message);
+        toast.success(String(res.message));
         window.location.reload();
       } else {
-        toast.error(res.message);
+        toast.error(String(res.message));
       }
     } catch (err: any) {
       toast.error(err.message || 'حدث خطأ أثناء الرفع');
