@@ -119,7 +119,7 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
     try {
       const result = await generateGuidanceTemplate();
       if ('error' in result) {
-        toast.error(result.error);
+        toast.error(String(result.error));
         return;
       }
       // Convert base64 to blob and download
