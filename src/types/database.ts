@@ -54,6 +54,25 @@ export interface School {
   mandatory_supervisor?: Supervisor;
 }
 
+export interface BaseSchool {
+  id: string;
+  school_code?: string;
+  school_name: string;
+  stage: Stage;
+  school_type: SchoolType;
+  administration: string;
+  created_at?: string;
+}
+
+export interface SupervisorAnnualSchool {
+  id: string;
+  supervisor_id: string;
+  base_school_id: string;
+  created_at?: string;
+  // Joined
+  base_school?: BaseSchool;
+}
+
 export interface Supervisor {
   id: string;
   national_id?: string;
@@ -73,6 +92,7 @@ export interface Supervisor {
   // Joined
   home_school?: School;
   wishes?: SupervisorWish;
+  annual_schools?: SupervisorAnnualSchool[];
 }
 
 export interface SupervisorWish {
