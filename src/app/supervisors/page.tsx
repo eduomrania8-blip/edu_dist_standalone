@@ -146,8 +146,8 @@ export default function SupervisorsPage() {
       </div>
 
       {/* Filters */}
-      <div className="glass-card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 200 }}>
+      <div className="glass-card filters-bar" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 200, width: '100%' }}>
           <Search size={15} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
           <input className="form-input" style={{ paddingRight: 36 }}
             placeholder="بحث بالاسم أو الرقم القومي أو الهاتف..."
@@ -270,7 +270,7 @@ export default function SupervisorsPage() {
             <h3 style={{ margin: '0 0 20px', fontSize: 17, fontWeight: 800 }}>
               {editing ? 'تعديل موجه' : 'إضافة موجه جديد'}
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="responsive-grid">
               <div style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">الاسم الكامل *</label>
                 <input className="form-input" value={form.name}

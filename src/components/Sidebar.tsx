@@ -34,10 +34,16 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     getUser().then(setUser);
   }, []);
+
+  // Close sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     const res = await logout();
@@ -49,15 +55,43 @@ export default function Sidebar() {
   if (pathname === '/login') return null;
 
   const filteredItems = navItems.filter(item => {
-    // If user is still loading, show all items to avoid blank sidebar
     if (!user) return true;
     if (user.role === 'admin') return true;
-    // Guidance users only see dashboard
     return item.href === '/';
   });
 
   return (
-    <nav className="sidebar no-print">
+    <>
+      {/* Mobile Toggle Button */}
+      <button 
+        className="mobile-toggle no-print"
+        onClick={() => setMobileOpen(!mobileOpen)}
+        style={{
+          display: 'none', // Hidden on desktop, shown via CSS on mobile
+          position: 'fixed', top: 16, right: 16, zIndex: 110,
+          background: 'rgba(7,11,20,0.8)', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 8, padding: 8, color: '#f1f5f9', cursor: 'pointer',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {mobileOpen ? <path d="M18 6L6 18M6 6l12 12"/> : <path d="M3 12h18M3 6h18M3 18h18"/>}
+        </svg>
+      </button>
+
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div 
+          className="sidebar-overlay no-print"
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99,
+            backdropFilter: 'blur(4px)'
+          }}
+        />
+      )}
+
+      <nav className={`sidebar no-print ${mobileOpen ? 'open' : ''}`}>
       {/* Logo */}
       <div style={{
         padding: '24px 20px',
@@ -138,7 +172,8 @@ export default function Sidebar() {
       }}>
         <p style={{ margin: 0 }}>محافظة الجيزة</p>
         <p style={{ margin: '2px 0 0', color: '#334155' }}>الإصدار 2.0 Enterprise</p>
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </>
   );
 }
