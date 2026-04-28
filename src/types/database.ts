@@ -246,7 +246,8 @@ export interface DistributionStats {
 // ────────────────────────────────────────────────────────────
 
 export type SchoolFormData = Omit<School, 'id' | 'created_at' | 'updated_at'>;
-export type SupervisorFormData = Omit<Supervisor, 'id' | 'created_at' | 'updated_at' | 'home_school'>;
+export type BaseSchoolFormData = Omit<BaseSchool, 'id' | 'created_at'>;
+export type SupervisorFormData = Omit<Supervisor, 'id' | 'created_at' | 'updated_at' | 'home_school' | 'annual_schools'>;
 
 export interface WishFormData {
   supervisor_id: string;

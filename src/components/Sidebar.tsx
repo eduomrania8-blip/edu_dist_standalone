@@ -17,11 +17,13 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { logout, getUser } from '@/actions/authActions';
+import { Building2 } from 'lucide-react';
 
 const navItems = [
   { href: '/',              label: 'لوحة التحكم',          icon: LayoutDashboard },
-  { href: '/schools',       label: 'المدارس',               icon: School },
+  { href: '/base-schools',  label: 'المدارس الأساسية',      icon: Building2 },
   { href: '/supervisors',   label: 'الموجهون',              icon: Users },
+  { href: '/schools',       label: 'لجان الامتحانات',       icon: School },
   { href: '/wishes',        label: 'الرغبات',               icon: Heart },
   { href: '/mandatory',     label: 'التكليفات الإجبارية',    icon: Zap },
   { href: '/distribution',  label: 'تشغيل التوزيع',         icon: Play },

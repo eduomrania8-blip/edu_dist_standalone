@@ -8,10 +8,53 @@ import {
   DistributionResult, DistributionSetting,
   SchoolFormData, SupervisorFormData, WishFormData,
   AssignmentPayload, AlgorithmParams, DistributionStats,
+  BaseSchool, BaseSchoolFormData
 } from '@/types/database';
 
 // ────────────────────────────────────────────────────────────
-// SCHOOLS
+// BASE SCHOOLS (المدارس الأساسية)
+// ────────────────────────────────────────────────────────────
+
+export async function getAllBaseSchools(): Promise<BaseSchool[]> {
+  const { data, error } = await supabase
+    .from('base_schools')
+    .select('*')
+    .order('school_name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createBaseSchool(data: BaseSchoolFormData): Promise<BaseSchool> {
+  const { data: school, error } = await supabase
+    .from('base_schools')
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return school;
+}
+
+export async function updateBaseSchool(id: string, data: Partial<BaseSchoolFormData>): Promise<BaseSchool> {
+  const { data: school, error } = await supabase
+    .from('base_schools')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return school;
+}
+
+export async function deleteBaseSchool(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('base_schools')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────────────────
+// EXAM SCHOOLS (لجان الامتحانات)
 // ────────────────────────────────────────────────────────────
 
 export async function getAllSchools(): Promise<School[]> {
