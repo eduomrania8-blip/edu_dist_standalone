@@ -19,6 +19,15 @@ function isEligible(supervisor: Supervisor, school: School): boolean {
   if (supervisor.home_school_id && supervisor.home_school_id === school.id) {
     return false;
   }
+  
+  // Rule: Cannot be assigned to an exam school if they monitor it annually (by name)
+  if (supervisor.annual_schools && supervisor.annual_schools.length > 0) {
+    const isMonitored = supervisor.annual_schools.some(
+      as => as.base_school?.school_name === school.school_name
+    );
+    if (isMonitored) return false;
+  }
+  
   return true;
 }
 
@@ -192,13 +201,13 @@ export function runDistributionAlgorithm(
           continue;
         }
 
-        // HARD CONSTRAINT: own school
+        // HARD CONSTRAINT: own school or annual monitored school
         if (!isEligible(sup, school)) {
           rejectedThisRound.push({
             supervisor_id: sup.id,
             supervisor_name: sup.name,
             reason: 'own_school',
-            details: 'لا يجوز التوزيع على مدرسة الموجه نفسه',
+            details: 'مدرسته الأصلية أو إحدى المدارس التي يتابعها (للشفافية)',
           });
           continue;
         }

@@ -113,7 +113,11 @@ export async function getAllSupervisors(): Promise<Supervisor[]> {
 export async function getAllSupervisorsIncludingInactive(): Promise<Supervisor[]> {
   const { data, error } = await supabase
     .from('supervisors')
-    .select('*, home_school:schools(id, school_name, school_code)')
+    .select(`
+      *, 
+      home_school:schools(id, school_name, school_code),
+      annual_schools:supervisor_annual_schools(id, base_school_id, base_school:base_schools(school_name))
+    `)
     .order('name');
   if (error) throw error;
   return data ?? [];
@@ -163,6 +167,24 @@ export async function deleteSupervisor(id: string): Promise<void> {
     .update({ is_active: false })
     .eq('id', id);
   if (error) throw error;
+}
+
+export async function updateSupervisorAnnualSchools(supervisorId: string, baseSchoolIds: string[]): Promise<void> {
+  // 1. Delete existing
+  const { error: delError } = await supabase
+    .from('supervisor_annual_schools')
+    .delete()
+    .eq('supervisor_id', supervisorId);
+  if (delError) throw delError;
+
+  // 2. Insert new ones
+  if (baseSchoolIds.length > 0) {
+    const payload = baseSchoolIds.map(id => ({ supervisor_id: supervisorId, base_school_id: id }));
+    const { error: insError } = await supabase
+      .from('supervisor_annual_schools')
+      .insert(payload);
+    if (insError) throw insError;
+  }
 }
 
 // ────────────────────────────────────────────────────────────

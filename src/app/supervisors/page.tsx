@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, CheckCircle2, XCircle, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import {
-  getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties, getUniqueStages
+  getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties, getUniqueStages, getAllBaseSchools, updateSupervisorAnnualSchools
 } from '@/services/distributionService';
-import { Supervisor, SupervisorFormData, School, SCHOOL_TYPES, SUPERVISOR_GRADES } from '@/types/database';
+import { Supervisor, SupervisorFormData, School, SCHOOL_TYPES, SUPERVISOR_GRADES, BaseSchool } from '@/types/database';
 
 const EMPTY_FORM: SupervisorFormData = {
   national_id: '',
@@ -26,6 +26,7 @@ const EMPTY_FORM: SupervisorFormData = {
 export default function SupervisorsPage() {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [baseSchools, setBaseSchools] = useState<BaseSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [specFilter, setSpecFilter] = useState('');
@@ -34,6 +35,7 @@ export default function SupervisorsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Supervisor | null>(null);
   const [form, setForm] = useState<SupervisorFormData>(EMPTY_FORM);
+  const [annualSchools, setAnnualSchools] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [specs, setSpecs] = useState<string[]>(['عام']);
   const [stages, setStages] = useState<string[]>([]);
@@ -41,14 +43,16 @@ export default function SupervisorsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sups, schs, specsData, stagesData] = await Promise.all([
+      const [sups, schs, baseSchs, specsData, stagesData] = await Promise.all([
         getAllSupervisorsIncludingInactive(),
         getAllSchools(),
+        getAllBaseSchools(),
         getUniqueSpecialties(),
         getUniqueStages()
       ]);
       setSupervisors(sups);
       setSchools(schs);
+      setBaseSchools(baseSchs);
       setSpecs(specsData);
       setStages(stagesData);
     } finally {
@@ -69,6 +73,7 @@ export default function SupervisorsPage() {
   const openCreate = () => {
     setEditing(null);
     setForm({ ...EMPTY_FORM, specialty: specs[0] || 'عام' });
+    setAnnualSchools([]);
     setShowModal(true);
   };
 
@@ -88,6 +93,7 @@ export default function SupervisorsPage() {
       qualification: sup.qualification ?? '',
       appointment_type: sup.appointment_type ?? 'حكومي',
     });
+    setAnnualSchools(sup.annual_schools?.map(s => s.base_school_id) || []);
     setShowModal(true);
   };
 
@@ -98,9 +104,11 @@ export default function SupervisorsPage() {
       const payload = { ...form, home_school_id: form.home_school_id || undefined };
       if (editing) {
         await updateSupervisor(editing.id, payload);
+        await updateSupervisorAnnualSchools(editing.id, annualSchools);
         toast.success('تم تحديث الموجه');
       } else {
-        await createSupervisor(payload);
+        const sup = await createSupervisor(payload);
+        await updateSupervisorAnnualSchools(sup.id, annualSchools);
         toast.success('تم إضافة الموجه');
       }
       setShowModal(false);
@@ -358,6 +366,38 @@ export default function SupervisorsPage() {
                   {schools.map(s => <option key={s.id} value={s.id}>{s.school_name}</option>)}
                 </select>
               </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">مدارس المتابعة السنوية (المدارس الأساسية التي يشرف عليها)</label>
+                <div style={{
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: 12, maxHeight: 150, overflowY: 'auto',
+                  display: 'flex', flexDirection: 'column', gap: 8
+                }}>
+                  {baseSchools.length === 0 ? (
+                    <span style={{ fontSize: 12, color: '#64748b' }}>لا توجد مدارس أساسية مسجلة</span>
+                  ) : (
+                    baseSchools.map(bs => {
+                      const isSelected = annualSchools.includes(bs.id);
+                      return (
+                        <label key={bs.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                          <input type="checkbox" checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAnnualSchools(prev => [...prev, bs.id]);
+                              } else {
+                                setAnnualSchools(prev => prev.filter(id => id !== bs.id));
+                              }
+                            }}
+                          />
+                          {bs.school_name}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" id="is_active_chk" checked={form.is_active}
                   onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
