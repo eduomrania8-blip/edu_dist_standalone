@@ -257,3 +257,45 @@ export interface WishFormData {
   wish_4?: string;
   notes?: string;
 }
+
+// ────────────────────────────────────────────────────────────
+// TEACHER (بوابة المعلمين)
+// ────────────────────────────────────────────────────────────
+
+export const TEACHER_SUBJECTS = [
+  'لغة عربية', 'رياضيات', 'رياضيات لغات', 'لغة إنجليزية',
+  'علوم', 'علوم لغات', 'دراسات', 'تربية مسيحية',
+  'جغرافيا', 'تاريخ', 'فيزياء', 'فيزياء لغات',
+  'كيمياء', 'كيمياء لغات', 'أحياء', 'أحياء لغات',
+  'علوم متكاملة', 'علم نفس', 'فلسفة ومنطق', 'أنشطة', 'مواد تجارية',
+] as const;
+
+export const TEACHER_GRADES = ['جيد', 'جيد جدا', 'امتياز', 'مقبول'] as const;
+export const CONTRACT_TYPES = ['بالأجر', 'أساسي', 'بالمعاش'] as const;
+
+export interface Teacher {
+  id: string;
+  national_id: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  subject?: string;
+  teacher_code?: string;
+  qualification?: string;
+  university?: string;
+  grad_year?: number;
+  grade?: string;
+  contract_type?: string;
+  start_date?: string;
+  diploma?: string;
+  dob?: string;
+  gov?: string;
+  base_school_id?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Joined
+  base_school?: BaseSchool;
+}
+
+export type TeacherFormData = Omit<Teacher, 'id' | 'created_at' | 'updated_at' | 'base_school'>;

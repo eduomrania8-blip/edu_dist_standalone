@@ -8,7 +8,8 @@ import {
   DistributionResult, DistributionSetting,
   SchoolFormData, SupervisorFormData, WishFormData,
   AssignmentPayload, AlgorithmParams, DistributionStats,
-  BaseSchool, BaseSchoolFormData
+  BaseSchool, BaseSchoolFormData,
+  Teacher, TeacherFormData
 } from '@/types/database';
 
 // ────────────────────────────────────────────────────────────
@@ -449,4 +450,58 @@ export async function getUniqueStages(): Promise<string[]> {
   const stages = Array.from(new Set((data ?? []).map(s => s.stage).filter(Boolean))).sort();
   return stages.length > 0 ? stages : ['إعدادي'];
 }
+
+// ────────────────────────────────────────────────────────────
+// TEACHERS (بوابة المعلمين)
+// ────────────────────────────────────────────────────────────
+
+export async function getTeacherByNID(nid: string): Promise<Teacher | null> {
+  const { data, error } = await supabase
+    .from('teachers')
+    .select('*, base_school:base_schools(id, school_name, stage, school_type)')
+    .eq('national_id', nid)
+    .single();
+  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+  return data ?? null;
+}
+
+export async function upsertTeacher(teacherData: TeacherFormData): Promise<Teacher> {
+  const { data, error } = await supabase
+    .from('teachers')
+    .upsert(teacherData, { onConflict: 'national_id' })
+    .select('*, base_school:base_schools(id, school_name, stage, school_type)')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getAllTeachers(): Promise<Teacher[]> {
+  const { data, error } = await supabase
+    .from('teachers')
+    .select('*, base_school:base_schools(id, school_name, stage, school_type)')
+    .eq('is_active', true)
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getTeachersBySchool(baseSchoolId: string): Promise<Teacher[]> {
+  const { data, error } = await supabase
+    .from('teachers')
+    .select('*')
+    .eq('base_school_id', baseSchoolId)
+    .eq('is_active', true)
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function deleteTeacher(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('teachers')
+    .update({ is_active: false })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 
