@@ -14,10 +14,12 @@ export const SPECIALIZATIONS = [
   'دراسات اجتماعية', 'تربية دينية', 'تربية فنية', 'تربية موسيقية',
   'تربية رياضية', 'لغة فرنسية', 'كيمياء', 'فيزياء', 'أحياء',
 ] as const;
+export const SUPERVISOR_GRADES = ['معلم مساعد / معلم', 'معلم أول', 'معلم أول أ', 'معلم خبير', 'كبير معلمين'] as const;
 
 export type Stage = string; // Allows dynamic stages like "ابتدائى - اعدادى" from DB
 export type SchoolType = typeof SCHOOL_TYPES[number];
 export type Specialization = typeof SPECIALIZATIONS[number];
+export type SupervisorGrade = typeof SUPERVISOR_GRADES[number];
 export type RunStatus = 'draft' | 'completed' | 'archived';
 export type RankLabel = 'رغبة أولى' | 'رغبة ثانية' | 'رغبة ثالثة' | 'رغبة رابعة' | 'توزيع اضطراري';
 
@@ -60,13 +62,17 @@ export interface Supervisor {
   stage?: Stage;
   school_type?: SchoolType;
   home_school_id?: string;
-  max_assignments: number;
+  max_assignments?: number;
   phone?: string;
   is_active: boolean;
+  grade?: SupervisorGrade;
+  qualification?: string;
+  appointment_type?: string;
   created_at?: string;
   updated_at?: string;
   // Joined
   home_school?: School;
+  wishes?: SupervisorWish;
 }
 
 export interface SupervisorWish {

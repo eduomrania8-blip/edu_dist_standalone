@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import {
   getAllSupervisorsIncludingInactive, createSupervisor, updateSupervisor, deleteSupervisor, getAllSchools, toggleSupervisorActive, getUniqueSpecialties, getUniqueStages
 } from '@/services/distributionService';
-import { Supervisor, SupervisorFormData, School, SCHOOL_TYPES } from '@/types/database';
+import { Supervisor, SupervisorFormData, School, SCHOOL_TYPES, SUPERVISOR_GRADES } from '@/types/database';
 
 const EMPTY_FORM: SupervisorFormData = {
   national_id: '',
@@ -18,6 +18,9 @@ const EMPTY_FORM: SupervisorFormData = {
   max_assignments: 1,
   phone: '',
   is_active: true,
+  grade: undefined,
+  qualification: '',
+  appointment_type: 'حكومي',
 };
 
 export default function SupervisorsPage() {
@@ -81,6 +84,9 @@ export default function SupervisorsPage() {
       max_assignments: sup.max_assignments ?? 1,
       phone: sup.phone ?? '',
       is_active: sup.is_active,
+      grade: sup.grade,
+      qualification: sup.qualification ?? '',
+      appointment_type: sup.appointment_type ?? 'حكومي',
     });
     setShowModal(true);
   };
@@ -181,6 +187,7 @@ export default function SupervisorsPage() {
                 <th>#</th>
                 <th>الاسم</th>
                 <th>التخصص</th>
+                <th>الكادر</th>
                 <th>المرحلة</th>
                 <th>التليفون</th>
                 <th>الحالة</th>
@@ -211,6 +218,13 @@ export default function SupervisorsPage() {
                       </div>
                     </td>
                     <td><span className="badge badge-purple">{sup.specialty}</span></td>
+                    <td>
+                      {sup.grade ? (
+                        <span className="badge badge-blue">{sup.grade}</span>
+                      ) : (
+                        <span style={{ color: '#475569', fontSize: 11 }}>—</span>
+                      )}
+                    </td>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>{sup.stage ?? '—'}</td>
                     <td>
                       {sup.phone ? (
@@ -292,6 +306,28 @@ export default function SupervisorsPage() {
                 <select className="form-input" value={form.specialty}
                   onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}>
                   {specs.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">الكادر (الوظيفة)</label>
+                <select className="form-input" value={form.grade ?? ''}
+                  onChange={e => setForm(f => ({ ...f, grade: (e.target.value || undefined) as any }))}>
+                  <option value="">بدون تحديد</option>
+                  {SUPERVISOR_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">المؤهل</label>
+                <input className="form-input" value={form.qualification ?? ''}
+                  onChange={e => setForm(f => ({ ...f, qualification: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">نوع التعيين</label>
+                <select className="form-input" value={form.appointment_type ?? ''}
+                  onChange={e => setForm(f => ({ ...f, appointment_type: e.target.value }))}>
+                  <option value="حكومي">حكومي</option>
+                  <option value="أجر/حصة">أجر / حصة</option>
+                  <option value="عقد">عقد</option>
                 </select>
               </div>
               <div>
