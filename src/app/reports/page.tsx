@@ -191,63 +191,84 @@ export default function ReportsPage() {
     } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
 
-  // ═══════ Stage Sheets (per stage) ═══════
+  // ═══════ Stage Sheets — one page per (stage × type) group ═══════
   const printStageSheets = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
 
-    const groups: Record<string, { label: string; items: DistributionResult[] }> = {
-      P_OFF: { label: 'المرحلة الابتدائية (رسمي)', items: [] },
-      E_OFF: { label: 'المرحلة الإعدادية (رسمي)', items: [] },
-      S_OFF: { label: 'المرحلة الثانوية (رسمي)', items: [] },
-      PVT: { label: 'المدارس الخاصة والدولية', items: [] },
-    };
+    // ① Group by stage, then by official vs private
+    const groupMap = new Map<string, DistributionResult[]>();
 
     results.forEach(r => {
-      const stage = r.school?.stage ?? '';
-      const type = r.school?.school_type ?? '';
-      const isOfficial = type.includes('رسمي') || type.includes('رسمى') || type.includes('حكومي') || type.includes('ثقافي') || type.includes('ثقافى');
-      if (!isOfficial) { groups.PVT.items.push(r); }
-      else if (stage.includes('ابتدائ')) groups.P_OFF.items.push(r);
-      else if (stage.includes('إعداد') || stage.includes('اعداد')) groups.E_OFF.items.push(r);
-      else if (stage.includes('ثانو')) groups.S_OFF.items.push(r);
-      else groups.P_OFF.items.push(r);
+      const stage = r.school?.stage ?? 'غير محددة';
+      const type  = r.school?.school_type ?? '';
+
+      // Classify school type
+      const isOfficial = ['حكومي','رسمي','رسمى','ثقافي','ثقافى','تجريبي','تجريبى']
+        .some(k => type.includes(k));
+      const isLanguage = type.includes('لغات');
+      const isPrivate  = !isOfficial;
+
+      let groupKey: string;
+      if (isLanguage) {
+        groupKey = `${stage} — لغات`;
+      } else if (isOfficial) {
+        groupKey = `${stage} — حكومي / رسمي`;
+      } else {
+        groupKey = `${stage} — خاص / دولي`;
+      }
+
+      if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
+      groupMap.get(groupKey)!.push(r);
     });
 
-    const fullHtml = Object.values(groups).filter(g => g.items.length > 0).map(group => {
-      group.items.sort((a, b) => (a.school?.school_name ?? '').localeCompare(b.school?.school_name ?? '', 'ar'));
-      const rows = group.items.map((r, i) => `
+    if (groupMap.size === 0) return toast.error('لا توجد نتائج لكشوف المراحل');
+
+    // ② Sort groups by stage name then by label
+    const sortedGroups = Array.from(groupMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b, 'ar'));
+
+    // ③ Build one page per group — identical structure to printGuidanceSheets
+    const pages = sortedGroups.map(([groupLabel, items]) => {
+      items.sort((a, b) =>
+        (a.school?.school_name ?? '').localeCompare(b.school?.school_name ?? '', 'ar')
+      );
+
+      const rows = items.map((r, i) => `
         <tr>
           <td>${i + 1}</td>
-          <td style="text-align:right">${r.school?.school_name ?? ''}<div style="font-size:8px; color:#666;">(${r.school?.school_type ?? ''})</div></td>
+          <td style="text-align:right; font-weight:600;">${r.school?.school_name ?? ''}</td>
+          <td style="font-size:10px; color:#555;">${r.school?.school_type ?? ''}</td>
           <td>${r.supervisor?.name ?? ''}</td>
           <td>${r.supervisor?.specialty ?? ''}</td>
-          <td dir="ltr" style="text-align:center;">${r.supervisor?.phone ?? '—'}</td>
-        </tr>
-      `).join('');
+          <td dir="ltr">${r.supervisor?.phone ?? '—'}</td>
+        </tr>`).join('');
 
       return `
-        <div class="report-page">
-          ${renderHeader(cfg, `توزيع الموجهين المقيمين — ${group.label}`, `${cfg.semester} ${cfg.academicYear}`)}
-          <table class="official-table" style="margin-top:15px;">
-            <thead><tr style="background:#e9ecef;">
-              <th style="width:40px;">م</th>
-              <th>اسم المدرسة</th>
-              <th style="width:180px;">اسم الموجه</th>
-              <th style="width:100px;">التخصص</th>
-              <th style="width:110px;">التليفون</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-          ${renderGMSignature(cfg)}
+        ${renderHeader(cfg, `كشف توزيع الموجهين — ${groupLabel}`, `${cfg.semester} ${cfg.academicYear}`)}
+        <div style="margin:6px 0; font-size:11px; color:#444; border:1px solid #ccc; padding:4px 10px; border-radius:3px; display:inline-block;">
+          إجمالي المدارس: <strong>${items.length}</strong>
         </div>
+        <table class="data-tbl">
+          <thead><tr>
+            <th style="width:35px;">م</th>
+            <th>اسم المدرسة</th>
+            <th style="width:80px;">النوع</th>
+            <th style="width:170px;">اسم الموجه</th>
+            <th style="width:90px;">التخصص</th>
+            <th style="width:110px;">التليفون</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${renderGMSignature(cfg)}
       `;
-    }).join('');
+    });
 
     try {
-      await generatePDF(fullHtml, `كشوف_المراحل_${run?.run_name ?? ''}.pdf`, setPdfProgress);
-      toast.success('تم إنشاء PDF بنجاح');
+      await generatePDF(wrapPages(pages), `كشوف_المراحل_${run?.run_name ?? ''}.pdf`, setPdfProgress);
+      toast.success(`تم إنشاء كشوف ${sortedGroups.length} مجموعة بنجاح`);
     } catch { toast.error('خطأ في إنشاء PDF'); setPdfProgress(''); }
   };
+
 
   // ═══════ Blank Letter ═══════
   const printBlankLetter = async () => {
