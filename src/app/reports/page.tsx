@@ -356,7 +356,7 @@ export default function ReportsPage() {
               </div>
               
               <button className="btn-primary" onClick={printIndividualLetters} disabled={!!pdfProgress} style={{ width: '100%', marginTop: 12, padding: '8px 16px', fontSize: 13 }}>
-                <Printer size={14} /> طباعة {selectedSups.length > 0 ? \`(\${selectedSups.length} محددين)\` : '(الكل)'}
+                <Printer size={14} /> طباعة {selectedSups.length > 0 ? `(${selectedSups.length} محددين)` : '(الكل)'}
               </button>
             </div>
 
