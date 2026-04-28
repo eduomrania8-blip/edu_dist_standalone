@@ -23,6 +23,12 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [cfg, setCfg] = useState<ReportSettings | null>(null);
   const [pdfProgress, setPdfProgress] = useState('');
+  
+  // Filters
+  const [filterSpec, setFilterSpec] = useState('');
+  const [filterStage, setFilterStage] = useState('');
+  const [searchSup, setSearchSup] = useState('');
+  const [selectedSups, setSelectedSups] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -57,6 +63,14 @@ export default function ReportsPage() {
     }, {})
   ).sort((a, b) => b[1] - a[1]);
 
+  const uniqueSpecs = Array.from(new Set(results.map(r => r.supervisor?.specialty).filter(Boolean))).sort() as string[];
+  const uniqueStages = Array.from(new Set(results.map(r => r.school?.stage).filter(Boolean))).sort() as string[];
+
+  const filteredSups = results
+    .map(r => r.supervisor)
+    .filter((s, i, arr) => s && arr.findIndex(x => x?.id === s.id) === i)
+    .filter(s => (s?.name ?? '').includes(searchSup));
+
   // ═══════ Export CSV ═══════
   const exportCSV = () => {
     const headers = ['الموجه', 'التخصص', 'المرحلة', 'المدرسة', 'الرغبة المحققة', 'النقاط'];
@@ -80,7 +94,13 @@ export default function ReportsPage() {
   // ═══════ Individual Letters ═══════
   const printIndividualLetters = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
-    const pages = results.filter(r => r.supervisor && r.school).map(r => {
+    const targetResults = selectedSups.length > 0 
+      ? results.filter(r => r.supervisor && selectedSups.includes(r.supervisor.id))
+      : results.filter(r => r.supervisor);
+
+    if (targetResults.length === 0) return toast.error('لم يتم العثور على خطابات للطباعة بناءً على الاختيار');
+
+    const pages = targetResults.filter(r => r.school).map(r => {
       const supName = r.supervisor?.name ?? '';
       const schoolName = r.school?.school_name ?? '';
       const specialty = r.supervisor?.specialty ?? '';
@@ -122,8 +142,18 @@ export default function ReportsPage() {
   // ═══════ Guidance Sheets (per specialty) ═══════
   const printGuidanceSheets = async () => {
     if (!cfg || results.length === 0) return toast.error('لا توجد نتائج');
+    
+    // Apply filters
+    const targetResults = results.filter(r => {
+      if (filterSpec && r.supervisor?.specialty !== filterSpec) return false;
+      if (filterStage && r.school?.stage !== filterStage) return false;
+      return true;
+    });
+
+    if (targetResults.length === 0) return toast.error('لا توجد نتائج تطابق هذه التصفية');
+
     const groups: Record<string, DistributionResult[]> = {};
-    results.forEach(r => {
+    targetResults.forEach(r => {
       const spec = r.supervisor?.specialty ?? 'غير محدد';
       if (!groups[spec]) groups[spec] = [];
       groups[spec].push(r);
@@ -282,31 +312,95 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* ═══════ PDF BUTTONS ═══════ */}
-          <div className="glass-card glass-card-accent" style={{ padding: 16, marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: pdfProgress ? 12 : 0 }}>
-              <Download size={18} color="#22d3ee" />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9' }}>إنشاء تقارير PDF:</span>
-              <button className="btn-primary" onClick={printIndividualLetters} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12 }}>
-                <Mail size={14} /> خطابات التكليف
-              </button>
-              <button className="btn-primary" onClick={printGuidanceSheets} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg,#a78bfa,#818cf8)' }}>
-                <BookOpen size={14} /> كشوف التوجيه
-              </button>
-              <button className="btn-primary" onClick={printStageSheets} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12, background: 'linear-gradient(135deg,#60a5fa,#3b82f6)' }}>
-                <Layers size={14} /> كشوف المراحل
-              </button>
-              <button className="btn-secondary" onClick={printBlankLetter} disabled={!!pdfProgress} style={{ padding: '8px 16px', fontSize: 12 }}>
-                <FileSpreadsheet size={14} /> خطاب فارغ
+          {/* ═══════ PDF BUTTONS & FILTERS ═══════ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            {/* Letters Print Card */}
+            <div className="glass-card" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Mail size={16} color="#22d3ee" />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>طباعة خطابات التكليف</h3>
+              </div>
+              
+              <div style={{ marginBottom: 12 }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="بحث عن موجه..." 
+                  value={searchSup} 
+                  onChange={e => setSearchSup(e.target.value)} 
+                  style={{ width: '100%', marginBottom: 8, padding: '6px 12px', fontSize: 12 }}
+                />
+                <div style={{ maxHeight: 120, overflowY: 'auto', background: 'rgba(0,0,0,0.1)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 6, padding: 8 }}>
+                  {filteredSups.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#64748b', textAlign: 'center', padding: 10 }}>لا يوجد تطابق</div>
+                  ) : (
+                    filteredSups.map(sup => sup && (
+                      <label key={sup.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedSups.includes(sup.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedSups(prev => [...prev, sup.id]);
+                            else setSelectedSups(prev => prev.filter(id => id !== sup.id));
+                          }}
+                        />
+                        {sup.name} <span style={{ color: '#64748b', fontSize: 10 }}>({sup.specialty})</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-secondary" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => setSelectedSups(filteredSups.map(s => s?.id).filter(Boolean) as string[])}>تحديد الكل</button>
+                <button className="btn-secondary" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => setSelectedSups([])}>إلغاء التحديد</button>
+              </div>
+              
+              <button className="btn-primary" onClick={printIndividualLetters} disabled={!!pdfProgress} style={{ width: '100%', marginTop: 12, padding: '8px 16px', fontSize: 13 }}>
+                <Printer size={14} /> طباعة {selectedSups.length > 0 ? \`(\${selectedSups.length} محددين)\` : '(الكل)'}
               </button>
             </div>
-            {pdfProgress && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#22d3ee', fontSize: 13 }}>
-                <div style={{ width: 16, height: 16, border: '2px solid #22d3ee', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                {pdfProgress}
+
+            {/* Other Reports Card */}
+            <div className="glass-card" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <BookOpen size={16} color="#a78bfa" />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>طباعة الكشوف المجمعة</h3>
               </div>
-            )}
+              
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <select className="form-input" style={{ flex: 1, fontSize: 12 }} value={filterSpec} onChange={e => setFilterSpec(e.target.value)}>
+                  <option value="">كل التخصصات</option>
+                  {uniqueSpecs.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select className="form-input" style={{ flex: 1, fontSize: 12 }} value={filterStage} onChange={e => setFilterStage(e.target.value)}>
+                  <option value="">كل المراحل</option>
+                  {uniqueStages.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <button className="btn-primary" onClick={printGuidanceSheets} disabled={!!pdfProgress} style={{ width: '100%', marginBottom: 12, padding: '8px 16px', fontSize: 13, background: 'linear-gradient(135deg,#a78bfa,#818cf8)' }}>
+                <Printer size={14} /> طباعة كشوف التوجيه المفلترة
+              </button>
+
+              <hr style={{ border: 'none', borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '12px 0' }} />
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-primary" onClick={printStageSheets} disabled={!!pdfProgress} style={{ flex: 1, padding: '8px', fontSize: 12, background: 'linear-gradient(135deg,#60a5fa,#3b82f6)' }}>
+                  <Layers size={14} /> كشوف المراحل
+                </button>
+                <button className="btn-secondary" onClick={printBlankLetter} disabled={!!pdfProgress} style={{ flex: 1, padding: '8px', fontSize: 12 }}>
+                  <FileSpreadsheet size={14} /> خطاب فارغ
+                </button>
+              </div>
+            </div>
           </div>
+          
+          {pdfProgress && (
+            <div className="glass-card glass-card-accent" style={{ padding: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, color: '#22d3ee', fontSize: 13 }}>
+              <div style={{ width: 16, height: 16, border: '2px solid #22d3ee', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              {pdfProgress}
+            </div>
+          )}
 
           {/* ═══════ SUMMARY CARDS ═══════ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
