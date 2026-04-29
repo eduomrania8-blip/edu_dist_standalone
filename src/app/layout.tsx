@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
-import Sidebar from "@/components/Sidebar";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -23,10 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <body className={cairo.variable} suppressHydrationWarning>
-        <Sidebar />
-        <main className="main-content">
-          {children}
-        </main>
+        {children}
         <Toaster
           position="bottom-left"
           toastOptions={{
@@ -39,12 +35,8 @@ export default function RootLayout({
               fontSize: '14px',
               direction: 'rtl',
             },
-            success: {
-              iconTheme: { primary: '#34d399', secondary: '#0d1526' },
-            },
-            error: {
-              iconTheme: { primary: '#f87171', secondary: '#0d1526' },
-            },
+            success: { iconTheme: { primary: '#34d399', secondary: '#0d1526' } },
+            error: { iconTheme: { primary: '#f87171', secondary: '#0d1526' } },
           }}
         />
       </body>
