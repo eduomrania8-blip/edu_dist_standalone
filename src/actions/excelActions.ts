@@ -23,7 +23,7 @@ function excelDateToISO(val: any): string | null {
 // Helper: National ID → DOB + Governorate
 // ─────────────────────────────────────────────
 function parseNID(nid: string) {
-  if (!nid || nid.length !== 14) return { dob: null, gov: null };
+  if (!nid || nid.length !== 14) return { dob: null, gov: null, isValid: false };
   const century = nid[0] === '2' ? '19' : '20';
   const y = century + nid.slice(1, 3);
   const m = nid.slice(3, 5);
@@ -40,6 +40,7 @@ function parseNID(nid: string) {
   };
 
   let dob: string | null = `${y}-${m}-${d}`;
+  let isValid = true;
   // Validate the date to prevent Postgres out-of-range errors for mistyped NIDs
   const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
   if (
@@ -48,9 +49,10 @@ function parseNID(nid: string) {
     dateObj.getDate() !== parseInt(d)
   ) {
     dob = null;
+    isValid = false; // The NID contains an impossible date
   }
 
-  return { dob, gov: govMap[govCode] || null };
+  return { dob, gov: govMap[govCode] || null, isValid };
 }
 
 // ─────────────────────────────────────────────
@@ -155,7 +157,7 @@ export async function importTeachersExcel(formData: FormData) {
   try {
     const file = formData.get('file') as File;
     if (!file) {
-      return { success: false, message: 'لم يتم العثور على ملف', schools: 0, teachers: 0 };
+      return { success: false, message: 'لم يتم العثور على ملف', schools: 0, teachers: 0, invalidTeachers: [] };
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -169,6 +171,7 @@ export async function importTeachersExcel(formData: FormData) {
 
     let schoolsImported = 0;
     let teachersImported = 0;
+    const invalidTeachers: string[] = [];
 
     // ── STEP 1: Import Schools (base_schools) ──
     if (schoolsSheetName && workbook.Sheets[schoolsSheetName]) {
@@ -217,7 +220,13 @@ export async function importTeachersExcel(formData: FormData) {
         if (!nid || !name) continue;
 
         const nidStr = String(nid).replace(/\s/g, '').padStart(14, '0');
-        const { dob, gov } = parseNID(nidStr);
+        const { dob, gov, isValid } = parseNID(nidStr);
+
+        // Reject invalid national IDs
+        if (!isValid) {
+          invalidTeachers.push(`${name} (الرقم القومي غير صالح: ${nidStr})`);
+          continue;
+        }
 
         const schoolCode = t.schoolCode || t.school_code || t['كود المدرسة'];
         const base_school_id = schoolCode ? (schoolMap[String(schoolCode)] || null) : null;
@@ -260,6 +269,7 @@ export async function importTeachersExcel(formData: FormData) {
       message: `تم الاستيراد بنجاح! (${schoolsImported} مدرسة + ${teachersImported} معلم)`,
       schools: schoolsImported,
       teachers: teachersImported,
+      invalidTeachers,
     };
   } catch (error: any) {
     console.error('Teacher Import Error:', error);
@@ -268,6 +278,7 @@ export async function importTeachersExcel(formData: FormData) {
       message: error.message || 'حدث خطأ أثناء الاستيراد',
       schools: 0,
       teachers: 0,
+      invalidTeachers: [],
     };
   }
 }
