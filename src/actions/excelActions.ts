@@ -233,6 +233,7 @@ export async function importTeachersExcel(formData: FormData) {
     if (teachersSheet) {
       const teachersRaw = XLSX.utils.sheet_to_json<any>(teachersSheet, { defval: null });
       const teacherRows: any[] = [];
+      const seenNids = new Set<string>();
 
       for (const t of teachersRaw) {
         const nid = t.nid || t.national_id || t.nationalId || t.NID || t['الرقم القومي'] || t['رقم قومي'];
@@ -240,6 +241,13 @@ export async function importTeachersExcel(formData: FormData) {
         if (!nid || !name) continue;
 
         const nidStr = String(nid).replace(/\s/g, '').padStart(14, '0');
+        
+        // Prevent Postgres "ON CONFLICT DO UPDATE command cannot affect row a second time"
+        if (seenNids.has(nidStr)) {
+          invalidTeachers.push(`${name} (رقم قومي مكرر في الملف: ${nidStr})`);
+          continue;
+        }
+        
         const { dob, gov, isValid } = parseNID(nidStr);
 
         // Reject invalid national IDs
@@ -247,6 +255,8 @@ export async function importTeachersExcel(formData: FormData) {
           invalidTeachers.push(`${name} (الرقم القومي غير صالح: ${nidStr})`);
           continue;
         }
+
+        seenNids.add(nidStr);
 
         const schoolCode = t.schoolCode || t.school_code || t['كود المدرسة'];
         const base_school_id = schoolCode ? (schoolMap[String(schoolCode)] || null) : null;
