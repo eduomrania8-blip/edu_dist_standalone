@@ -18,6 +18,10 @@ export default function TeachersAdminPage() {
   const [schoolFilter, setSchoolFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -33,12 +37,18 @@ export default function TeachersAdminPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, schoolFilter, subjectFilter]);
+
   const filtered = teachers.filter(t => {
     const matchSearch = t.name.includes(search) || t.national_id.includes(search) || (t.phone || '').includes(search);
     const matchSchool = schoolFilter ? t.base_school_id === schoolFilter : true;
     const matchSubject = subjectFilter ? t.subject === subjectFilter : true;
     return matchSearch && matchSchool && matchSubject;
   });
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const uniqueSubjects = Array.from(new Set(teachers.map(t => t.subject).filter(Boolean)));
 
@@ -136,9 +146,9 @@ export default function TeachersAdminPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((t, idx) => (
+                paginated.map((t, idx) => (
                   <tr key={t.id}>
-                    <td style={{ color: '#475569' }}>{idx + 1}</td>
+                    <td style={{ color: '#475569' }}>{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                     <td style={{ fontWeight: 700 }}>
                       {t.name}
                       {t.gov && <div style={{ fontSize: 11, color: '#64748b' }}>📍 {t.gov}</div>}
@@ -176,6 +186,36 @@ export default function TeachersAdminPage() {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {!loading && totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontSize: 12, color: '#64748b' }}>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى {Math.min(currentPage * itemsPerPage, filtered.length)} من أصل {filtered.length}
+            </span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button 
+                className="btn-secondary" 
+                style={{ padding: '6px 12px', fontSize: 12 }}
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                السابق
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 12, fontWeight: 600, color: '#f1f5f9', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                {currentPage} / {totalPages}
+              </div>
+              <button 
+                className="btn-secondary" 
+                style={{ padding: '6px 12px', fontSize: 12 }}
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
