@@ -8,7 +8,27 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 // ─────────────────────────────────────────────
 function excelDateToISO(val: any): string | null {
   if (!val) return null;
-  if (typeof val === 'string' && val.includes('-')) return val.slice(0, 10);
+  
+  if (typeof val === 'string' && val.includes('-')) {
+    const sliced = val.slice(0, 10);
+    // Validate the string date
+    const parts = sliced.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      const dateObj = new Date(y, m - 1, d);
+      if (
+        dateObj.getFullYear() === y &&
+        dateObj.getMonth() === m - 1 &&
+        dateObj.getDate() === d
+      ) {
+        return sliced;
+      }
+    }
+    return null; // Invalid date string
+  }
+  
   if (typeof val === 'number') {
     const d = XLSX.SSF.parse_date_code(val);
     if (d) {
