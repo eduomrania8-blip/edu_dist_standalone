@@ -3,9 +3,11 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session');
-  const isLoginPage = request.nextUrl.pathname === '/login';
+  const path = request.nextUrl.pathname;
+  const isLoginPage = path === '/login';
+  const isPortalPage = path.startsWith('/portal');
 
-  if (!sessionCookie && !isLoginPage) {
+  if (!sessionCookie && !isLoginPage && !isPortalPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
