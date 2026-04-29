@@ -38,7 +38,19 @@ function parseNID(nid: string) {
     '28': 'أسوان', '29': 'الأقصر', '31': 'البحر الأحمر', '32': 'الوادي الجديد',
     '33': 'مطروح', '34': 'شمال سيناء', '35': 'جنوب سيناء',
   };
-  return { dob: `${y}-${m}-${d}`, gov: govMap[govCode] || null };
+
+  let dob: string | null = `${y}-${m}-${d}`;
+  // Validate the date to prevent Postgres out-of-range errors for mistyped NIDs
+  const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  if (
+    dateObj.getFullYear() !== parseInt(y) ||
+    dateObj.getMonth() !== parseInt(m) - 1 ||
+    dateObj.getDate() !== parseInt(d)
+  ) {
+    dob = null;
+  }
+
+  return { dob, gov: govMap[govCode] || null };
 }
 
 // ─────────────────────────────────────────────
