@@ -68,6 +68,8 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
+  const [invalidTeachersList, setInvalidTeachersList] = useState<string[]>([]);
+
   useEffect(() => {
     getSettings().then(s => {
       setSettings(s);
@@ -216,12 +218,17 @@ export default function SettingsPage() {
                   onSubmit={async (e) => {
                     e.preventDefault();
                     setSaving('teacher_import');
+                    setInvalidTeachersList([]);
                     try {
                       const formData = new FormData(e.currentTarget);
                       const { importTeachersExcel } = await import('@/actions/excelActions');
                       const res = await importTeachersExcel(formData);
                       if (res.success) {
                         toast.success(String(res.message));
+                        if (res.invalidTeachers && res.invalidTeachers.length > 0) {
+                          setInvalidTeachersList(res.invalidTeachers);
+                          toast.error(`تم استبعاد ${res.invalidTeachers.length} معلماً لوجود خطأ في الرقم القومي!`, { duration: 6000 });
+                        }
                       } else {
                         toast.error(String(res.message));
                       }
@@ -259,6 +266,23 @@ export default function SettingsPage() {
                       : <><Users size={14} /> رفع بيانات المعلمين والمدارس</>}
                   </button>
                 </form>
+
+                {/* عرض المعلمين المرفوضين */}
+                {invalidTeachersList.length > 0 && (
+                  <div style={{ marginTop: 20, background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, padding: 16 }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 13, color: '#f87171', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ display: 'inline-block', width: 6, height: 6, background: '#f87171', borderRadius: '50%' }} />
+                      تم استبعاد السجلات التالية (الرقم القومي غير صالح):
+                    </h4>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto', fontSize: 12, color: '#cbd5e1' }}>
+                      {invalidTeachersList.map((err, i) => (
+                        <li key={i} style={{ background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: 6 }}>
+                          {err}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
