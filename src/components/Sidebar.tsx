@@ -14,6 +14,7 @@ import {
   Zap,
   LogOut,
   Shield,
+  GraduationCap,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { logout, getUser } from '@/actions/authActions';
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/',              label: 'لوحة التحكم',          icon: LayoutDashboard },
   { href: '/base-schools',  label: 'المدارس الأساسية',      icon: Building2 },
   { href: '/supervisors',   label: 'الموجهون',              icon: Users },
+  { href: '/teachers',      label: 'بيانات المعلمين',       icon: GraduationCap },
   { href: '/schools',       label: 'لجان الامتحانات',       icon: School },
   { href: '/wishes',        label: 'الرغبات',               icon: Heart },
   { href: '/mandatory',     label: 'التكليفات الإجبارية',    icon: Zap },
