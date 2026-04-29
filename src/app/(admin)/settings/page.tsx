@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Save, RefreshCw } from 'lucide-react';
+import { Settings, Save, RefreshCw, Upload, Users, School, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getSettings, updateSetting } from '@/services/distributionService';
 
@@ -189,69 +189,144 @@ export default function SettingsPage() {
             </div>
           ))}
 
-          {/* System Info & Sync */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div className="glass-card" style={{ padding: 20 }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>معلومات النظام</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {[
-                  { label: 'الإصدار', value: '2.0 Enterprise' },
-                  { label: 'إطار العمل', value: 'Next.js 16 + Supabase' },
-                  { label: 'قاعدة البيانات', value: 'PostgreSQL (Supabase)' },
-                  { label: 'الخوارزمية', value: 'Scoring + Swap Optimization' },
-                ].map(item => (
-                  <div key={item.label} style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    borderRadius: 10, padding: '10px 14px',
+          {/* Import & System Info */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            
+            {/* ── استيراد بيانات المعلمين ── */}
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <div style={{
+                padding: '14px 20px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'linear-gradient(135deg, rgba(34,211,238,0.05), rgba(168,85,247,0.05))',
+              }}>
+                <Users size={15} color="#a855f7" />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
+                  استيراد بيانات المعلمين والمدارس
+                </h3>
+              </div>
+
+              <div style={{ padding: '20px' }}>
+                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.8 }}>
+                  قم برفع ملف <strong style={{ color: '#22d3ee' }}>TeacherDB.xlsx</strong> الذي يحتوي على بيانات المعلمين والمدارس.
+                  سيتم تحديث قاعدة البيانات تلقائياً باستخدام Service Role (يتجاوز قواعد RLS).
+                </p>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSaving('teacher_import');
+                    try {
+                      const formData = new FormData(e.currentTarget);
+                      const { importTeachersExcel } = await import('@/actions/excelActions');
+                      const res = await importTeachersExcel(formData);
+                      if (res.success) {
+                        toast.success(String(res.message));
+                      } else {
+                        toast.error(String(res.message));
+                      }
+                    } catch (err: any) {
+                      toast.error('خطأ: ' + err.message);
+                    } finally {
+                      setSaving(null);
+                    }
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+                >
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 14,
+                    border: '1px dashed rgba(168,85,247,0.3)',
                   }}>
-                    <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{item.label}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{item.value}</p>
+                    <Upload size={20} color="#a855f7" />
+                    <input
+                      type="file"
+                      name="file"
+                      accept=".xlsx, .xls"
+                      required
+                      className="form-input"
+                      style={{ flex: 1, fontSize: 12, border: 'none', background: 'transparent' }}
+                    />
                   </div>
-                ))}
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={saving === 'teacher_import'}
+                    style={{ alignSelf: 'flex-start', padding: '10px 24px', gap: 8 }}
+                  >
+                    {saving === 'teacher_import'
+                      ? <><RefreshCw size={14} className="animate-spin" /> جاري استيراد المعلمين...</>
+                      : <><Users size={14} /> رفع بيانات المعلمين والمدارس</>}
+                  </button>
+                </form>
               </div>
             </div>
 
-            <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>استيراد البيانات من Excel</h3>
-              <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
-                يقوم هذا الإجراء برفع ملف الإكسيل (الذي يحتوي على المدارس والموجهين) وتحديث قاعدة البيانات به.
-              </p>
-              
-              <form 
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setSaving('excel_sync');
-                  try {
-                    const formData = new FormData(e.currentTarget);
-                    const { importExcelData } = await import('@/actions/excelActions');
-                    const res = await importExcelData(formData);
-                    if (res.success) toast.success(String(res.message));
-                    else toast.error(String(res.message));
-                  } catch (err: any) {
-                    toast.error('خطأ: ' + err.message);
-                  } finally {
-                    setSaving(null);
-                  }
-                }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', alignItems: 'center' }}
-              >
-                <input 
-                  type="file" 
-                  name="file" 
-                  accept=".xlsx, .xls" 
-                  required 
-                  className="form-input" 
-                  style={{ width: '80%', fontSize: 12 }}
-                />
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={saving === 'excel_sync'}
+            {/* ── استيراد بيانات الموجهين (الأصلي) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="glass-card" style={{ padding: 20 }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>معلومات النظام</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[
+                    { label: 'الإصدار', value: '2.0 Enterprise' },
+                    { label: 'إطار العمل', value: 'Next.js 16 + Supabase' },
+                    { label: 'قاعدة البيانات', value: 'PostgreSQL (Supabase)' },
+                    { label: 'الخوارزمية', value: 'Scoring + Swap Optimization' },
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: 10, padding: '10px 14px',
+                    }}>
+                      <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{item.label}</p>
+                      <p style={{ margin: '3px 0 0', fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                <School size={24} color="#22d3ee" style={{ marginBottom: 8 }} />
+                <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>استيراد الموجهين</h3>
+                <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
+                  رفع ملف Excel يحتوي على المدارس والموجهين وتحديث قاعدة البيانات.
+                </p>
+                
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSaving('excel_sync');
+                    try {
+                      const formData = new FormData(e.currentTarget);
+                      const { importExcelData } = await import('@/actions/excelActions');
+                      const res = await importExcelData(formData);
+                      if (res.success) toast.success(String(res.message));
+                      else toast.error(String(res.message));
+                    } catch (err: any) {
+                      toast.error('خطأ: ' + err.message);
+                    } finally {
+                      setSaving(null);
+                    }
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', alignItems: 'center' }}
                 >
-                  {saving === 'excel_sync' ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  {saving === 'excel_sync' ? 'جاري الاستيراد...' : 'بدء استيراد البيانات'}
-                </button>
-              </form>
+                  <input 
+                    type="file" 
+                    name="file" 
+                    accept=".xlsx, .xls" 
+                    required 
+                    className="form-input" 
+                    style={{ width: '80%', fontSize: 12 }}
+                  />
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={saving === 'excel_sync'}
+                  >
+                    {saving === 'excel_sync' ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {saving === 'excel_sync' ? 'جاري الاستيراد...' : 'استيراد الموجهين'}
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </div>
