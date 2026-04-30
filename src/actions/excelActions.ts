@@ -222,18 +222,33 @@ export async function importTeachersExcel(formData: FormData) {
     // ── STEP 1: Import Schools (base_schools) ──
     if (schoolsSheetName && workbook.Sheets[schoolsSheetName]) {
       const schoolsRaw = XLSX.utils.sheet_to_json<any>(workbook.Sheets[schoolsSheetName], { defval: null });
-      const schoolRows = schoolsRaw
+      let schoolRows = schoolsRaw
         .filter((s: any) => {
-          const code = findKey(s, ['code', 'school_code', 'كود المدرسة']);
-          const name = findKey(s, ['name', 'school_name', 'اسم المدرسة']);
+          const code = findKey(s, ['code', 'school_code', 'كود المدرسة', 'الكود']);
+          const name = findKey(s, ['name', 'school_name', 'اسم المدرسة', 'المدرسة']);
           return code && name;
         })
         .map((s: any) => ({
-          school_code: String(findKey(s, ['code', 'school_code', 'كود المدرسة'])).trim(),
-          school_name: String(findKey(s, ['name', 'school_name', 'اسم المدرسة'])).trim(),
+          school_code: String(findKey(s, ['code', 'school_code', 'كود المدرسة', 'الكود'])).trim(),
+          school_name: String(findKey(s, ['name', 'school_name', 'اسم المدرسة', 'المدرسة'])).trim(),
           stage: findKey(s, ['stageName', 'stage', 'المرحلة']) || 'ابتدائي',
           school_type: findKey(s, ['typeName', 'type', 'school_type', 'النوع']) || 'رسمى',
         }));
+
+      // Fallback if headers are completely different or on the second row
+      if (schoolRows.length === 0) {
+        const schoolsArray = XLSX.utils.sheet_to_json<any[]>(workbook.Sheets[schoolsSheetName], { header: 1 });
+        schoolRows = schoolsArray
+          // Skip first row (often headers or title)
+          .slice(1)
+          .filter(row => row[0] && row[1]) // Ensure Code and Name exist
+          .map(row => ({
+            school_code: String(row[0]).trim(),
+            school_name: String(row[1]).trim(),
+            school_type: row[2] ? String(row[2]).trim() : 'رسمى',
+            stage: row[3] ? String(row[3]).trim() : 'ابتدائي',
+          }));
+      }
 
       if (schoolRows.length > 0) {
         // Batch upsert schools (50 at a time)
@@ -286,7 +301,7 @@ export async function importTeachersExcel(formData: FormData) {
 
         seenNids.add(nidStr);
 
-        const schoolCode = findKey(t, ['schoolCode', 'school_code', 'كود المدرسة']);
+        const schoolCode = findKey(t, ['schoolCode', 'school_code', 'كود المدرسة', 'الكود']);
         const base_school_id = schoolCode ? (schoolMap[String(schoolCode).trim()] || null) : null;
 
         teacherRows.push({
