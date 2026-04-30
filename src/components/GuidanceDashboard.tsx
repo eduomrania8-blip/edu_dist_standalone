@@ -56,216 +56,7 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // ---------- PDF & Excel Exports ----------
-  const printTeachersPDF = async () => {
-    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
-    const rows = filteredTeachers.map((t: any, i: number) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td style="text-align:right; font-weight:600;">${t.name || ''}</td>
-        <td style="font-family:monospace;">${t.national_id || ''}</td>
-        <td>${t.subject || ''}</td>
-        <td>${t.base_school?.school_name || 'غير مسكن'}</td>
-        <td>${t.contract_type || ''}</td>
-      </tr>
-    `).join('');
 
-    const page = `
-      ${renderHeader(cfg, 'كشف بيانات المعلمين', \`توجيه: \${user.specialty}\`)}
-      <table class="data-tbl">
-        <thead>
-          <tr>
-            <th style="width:40px;">م</th>
-            <th>الاسم</th>
-            <th style="width:120px;">الرقم القومي</th>
-            <th style="width:100px;">المادة</th>
-            <th style="width:150px;">المدرسة</th>
-            <th style="width:80px;">التعيين</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${renderGMSignature(cfg)}
-    `;
-    try {
-      await generatePDF(wrapPages([page]), \`معلمين_\${user.specialty}.pdf\`, setPdfProgress);
-      toast.success('تم إنشاء PDF بنجاح');
-    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
-  };
-
-  const exportTeachersExcel = () => {
-    const dataToExport = filteredTeachers.map((t: any, i: number) => ({
-      'م': i + 1,
-      'الاسم': t.name,
-      'الرقم القومي': t.national_id,
-      'المادة': t.subject,
-      'المدرسة': t.base_school?.school_name || 'غير مسكن',
-      'نوع التعيين': t.contract_type
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'المعلمين');
-    XLSX.writeFile(wb, \`معلمين_\${user.specialty}.xlsx\`);
-  };
-
-  const printDistributionPDF = async () => {
-    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
-    const rows = supervisors.map((sup: any, i: number) => {
-      const mySchools = annualSchools.filter((a: any) => a.supervisor_id === sup.id);
-      const schoolsText = mySchools.length > 0 
-        ? mySchools.map((a: any) => a.base_school?.school_name).join(' - ') 
-        : 'لا توجد مدارس مسندة';
-      return \`
-        <tr>
-          <td>\${i + 1}</td>
-          <td style="text-align:right; font-weight:600;">\${sup.name || ''}</td>
-          <td style="text-align:right;">\${schoolsText}</td>
-        </tr>
-      \`;
-    }).join('');
-
-    const page = \`
-      \${renderHeader(cfg, 'توزيع الموجهين (خطة المتابعة السنوية)', \`توجيه: \${user.specialty}\`)}
-      <table class="data-tbl">
-        <thead>
-          <tr>
-            <th style="width:40px;">م</th>
-            <th style="width:200px;">الموجه</th>
-            <th>المدارس المسندة</th>
-          </tr>
-        </thead>
-        <tbody>\${rows}</tbody>
-      </table>
-      \${renderGMSignature(cfg)}
-    \`;
-    try {
-      await generatePDF(wrapPages([page]), \`توزيع_\${user.specialty}.pdf\`, setPdfProgress);
-      toast.success('تم إنشاء PDF بنجاح');
-    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
-  };
-
-  const exportDistributionExcel = () => {
-    const dataToExport = supervisors.map((sup: any, i: number) => {
-      const mySchools = annualSchools.filter((a: any) => a.supervisor_id === sup.id);
-      const schoolsText = mySchools.length > 0 
-        ? mySchools.map((a: any) => a.base_school?.school_name).join(' - ') 
-        : 'لا توجد مدارس مسندة';
-      return {
-        'م': i + 1,
-        'الموجه': sup.name,
-        'المدارس المسندة': schoolsText
-      };
-    });
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'التوزيع');
-    XLSX.writeFile(wb, \`توزيع_\${user.specialty}.xlsx\`);
-  };
-
-  const printSupervisorsPDF = async () => {
-    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
-    const rows = supervisors.map((sup: any, i: number) => {
-      const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
-      return \`
-        <tr>
-          <td>\${i + 1}</td>
-          <td style="text-align:right; font-weight:600;">\${sup.name || ''}</td>
-          <td style="font-family:monospace;">\${sup.national_id || ''}</td>
-          <td dir="ltr" style="font-family:monospace;">\${sup.phone || ''}</td>
-          <td>\${supWishes ? 'تم الإدخال' : 'لم يتم الإدخال'}</td>
-          <td>\${sup.is_active ? 'متاح' : 'غير متاح'}</td>
-        </tr>
-      \`;
-    }).join('');
-
-    const page = \`
-      \${renderHeader(cfg, 'بيانات الموجهين', \`توجيه: \${user.specialty}\`)}
-      <table class="data-tbl">
-        <thead>
-          <tr>
-            <th style="width:40px;">م</th>
-            <th>اسم الموجه</th>
-            <th style="width:120px;">الرقم القومي</th>
-            <th style="width:100px;">التليفون</th>
-            <th style="width:90px;">الرغبات</th>
-            <th style="width:70px;">الحالة</th>
-          </tr>
-        </thead>
-        <tbody>\${rows}</tbody>
-      </table>
-      \${renderGMSignature(cfg)}
-    \`;
-    try {
-      await generatePDF(wrapPages([page]), \`الموجهون_\${user.specialty}.pdf\`, setPdfProgress);
-      toast.success('تم إنشاء PDF بنجاح');
-    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
-  };
-
-  const printBaseSchoolsPDF = async () => {
-    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
-    const rows = baseSchools.map((bs: any, i: number) => \`
-      <tr>
-        <td>\${i + 1}</td>
-        <td style="text-align:right; font-weight:600;">\${bs.school_name || ''}</td>
-        <td style="font-family:monospace;">\${bs.school_code || ''}</td>
-        <td>\${bs.stage || ''}</td>
-        <td>\${bs.school_type || ''}</td>
-      </tr>
-    \`).join('');
-
-    const page = \`
-      \${renderHeader(cfg, 'المدارس الأساسية (مقر اللجان)', \`توجيه: \${user.specialty}\`)}
-      <table class="data-tbl">
-        <thead>
-          <tr>
-            <th style="width:40px;">م</th>
-            <th>اسم المدرسة</th>
-            <th style="width:100px;">كود المدرسة</th>
-            <th style="width:100px;">المرحلة</th>
-            <th style="width:100px;">النوعية</th>
-          </tr>
-        </thead>
-        <tbody>\${rows}</tbody>
-      </table>
-      \${renderGMSignature(cfg)}
-    \`;
-    try {
-      await generatePDF(wrapPages([page]), \`المدارس_الأساسية.pdf\`, setPdfProgress);
-      toast.success('تم إنشاء PDF بنجاح');
-    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
-  };
-
-  const exportSupervisorsExcel = () => {
-    const dataToExport = supervisors.map((sup: any, i: number) => {
-      const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
-      return {
-        'م': i + 1,
-        'الاسم': sup.name,
-        'الرقم القومي': sup.national_id,
-        'التليفون': sup.phone,
-        'الرغبات': supWishes ? 'تم الإدخال' : 'لم يتم الإدخال',
-        'الحالة': sup.is_active ? 'متاح' : 'غير متاح'
-      };
-    });
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'الموجهين');
-    XLSX.writeFile(wb, \`الموجهون_\${user.specialty}.xlsx\`);
-  };
-
-  const exportBaseSchoolsExcel = () => {
-    const dataToExport = baseSchools.map((bs: any, i: number) => ({
-      'م': i + 1,
-      'اسم المدرسة': bs.school_name,
-      'كود المدرسة': bs.school_code,
-      'المرحلة': bs.stage,
-      'النوعية': bs.school_type
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'المدارس');
-    XLSX.writeFile(wb, \`المدارس_الأساسية.xlsx\`);
-  };
 
   // ---------- Toggle Active ----------
   const toggleActive = async (id: string, currentStatus: boolean) => {
@@ -416,6 +207,217 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
   const filteredBaseSchools = baseSchools.filter((s: any) => {
     return s.school_name.includes(baseSchoolSearch) || s.school_code.includes(baseSchoolSearch);
   });
+
+  // ---------- PDF & Excel Exports ----------
+  const printTeachersPDF = async () => {
+    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
+    const rows = filteredTeachers.map((t: any, i: number) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td style="text-align:right; font-weight:600;">${t.name || ''}</td>
+        <td style="font-family:monospace;">${t.national_id || ''}</td>
+        <td>${t.subject || ''}</td>
+        <td>${t.base_school?.school_name || 'غير مسكن'}</td>
+        <td>${t.contract_type || ''}</td>
+      </tr>
+    `).join('');
+
+    const page = `
+      ${renderHeader(cfg, 'كشف بيانات المعلمين', `توجيه: ${user.specialty}`)}
+      <table class="data-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px;">م</th>
+            <th>الاسم</th>
+            <th style="width:120px;">الرقم القومي</th>
+            <th style="width:100px;">المادة</th>
+            <th style="width:150px;">المدرسة</th>
+            <th style="width:80px;">التعيين</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${renderGMSignature(cfg)}
+    `;
+    try {
+      await generatePDF(wrapPages([page]), `معلمين_${user.specialty}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
+  };
+
+  const exportTeachersExcel = () => {
+    const dataToExport = filteredTeachers.map((t: any, i: number) => ({
+      'م': i + 1,
+      'الاسم': t.name,
+      'الرقم القومي': t.national_id,
+      'المادة': t.subject,
+      'المدرسة': t.base_school?.school_name || 'غير مسكن',
+      'نوع التعيين': t.contract_type
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'المعلمين');
+    XLSX.writeFile(wb, `معلمين_${user.specialty}.xlsx`);
+  };
+
+  const printDistributionPDF = async () => {
+    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
+    const rows = supervisors.map((sup: any, i: number) => {
+      const mySchools = annualSchools.filter((a: any) => a.supervisor_id === sup.id);
+      const schoolsText = mySchools.length > 0 
+        ? mySchools.map((a: any) => a.base_school?.school_name).join(' - ') 
+        : 'لا توجد مدارس مسندة';
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="text-align:right; font-weight:600;">${sup.name || ''}</td>
+          <td style="text-align:right;">${schoolsText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const page = `
+      ${renderHeader(cfg, 'توزيع الموجهين (خطة المتابعة السنوية)', `توجيه: ${user.specialty}`)}
+      <table class="data-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px;">م</th>
+            <th style="width:200px;">الموجه</th>
+            <th>المدارس المسندة</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${renderGMSignature(cfg)}
+    `;
+    try {
+      await generatePDF(wrapPages([page]), `توزيع_${user.specialty}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
+  };
+
+  const exportDistributionExcel = () => {
+    const dataToExport = supervisors.map((sup: any, i: number) => {
+      const mySchools = annualSchools.filter((a: any) => a.supervisor_id === sup.id);
+      const schoolsText = mySchools.length > 0 
+        ? mySchools.map((a: any) => a.base_school?.school_name).join(' - ') 
+        : 'لا توجد مدارس مسندة';
+      return {
+        'م': i + 1,
+        'الموجه': sup.name,
+        'المدارس المسندة': schoolsText
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'التوزيع');
+    XLSX.writeFile(wb, `توزيع_${user.specialty}.xlsx`);
+  };
+
+  const printSupervisorsPDF = async () => {
+    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
+    const rows = supervisors.map((sup: any, i: number) => {
+      const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="text-align:right; font-weight:600;">${sup.name || ''}</td>
+          <td style="font-family:monospace;">${sup.national_id || ''}</td>
+          <td dir="ltr" style="font-family:monospace;">${sup.phone || ''}</td>
+          <td>${supWishes ? 'تم الإدخال' : 'لم يتم الإدخال'}</td>
+          <td>${sup.is_active ? 'متاح' : 'غير متاح'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const page = `
+      ${renderHeader(cfg, 'بيانات الموجهين', `توجيه: ${user.specialty}`)}
+      <table class="data-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px;">م</th>
+            <th>اسم الموجه</th>
+            <th style="width:120px;">الرقم القومي</th>
+            <th style="width:100px;">التليفون</th>
+            <th style="width:90px;">الرغبات</th>
+            <th style="width:70px;">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${renderGMSignature(cfg)}
+    `;
+    try {
+      await generatePDF(wrapPages([page]), `الموجهون_${user.specialty}.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
+  };
+
+  const printBaseSchoolsPDF = async () => {
+    if (!cfg) return toast.error('إعدادات الطباعة غير متوفرة');
+    const rows = baseSchools.map((bs: any, i: number) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td style="text-align:right; font-weight:600;">${bs.school_name || ''}</td>
+        <td style="font-family:monospace;">${bs.school_code || ''}</td>
+        <td>${bs.stage || ''}</td>
+        <td>${bs.school_type || ''}</td>
+      </tr>
+    `).join('');
+
+    const page = `
+      ${renderHeader(cfg, 'المدارس الأساسية (مقر اللجان)', `توجيه: ${user.specialty}`)}
+      <table class="data-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px;">م</th>
+            <th>اسم المدرسة</th>
+            <th style="width:100px;">كود المدرسة</th>
+            <th style="width:100px;">المرحلة</th>
+            <th style="width:100px;">النوعية</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${renderGMSignature(cfg)}
+    `;
+    try {
+      await generatePDF(wrapPages([page]), `المدارس_الأساسية.pdf`, setPdfProgress);
+      toast.success('تم إنشاء PDF بنجاح');
+    } catch { toast.error('خطأ في الطباعة'); setPdfProgress(''); }
+  };
+
+  const exportSupervisorsExcel = () => {
+    const dataToExport = supervisors.map((sup: any, i: number) => {
+      const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
+      return {
+        'م': i + 1,
+        'الاسم': sup.name,
+        'الرقم القومي': sup.national_id,
+        'التليفون': sup.phone,
+        'الرغبات': supWishes ? 'تم الإدخال' : 'لم يتم الإدخال',
+        'الحالة': sup.is_active ? 'متاح' : 'غير متاح'
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'الموجهين');
+    XLSX.writeFile(wb, `الموجهون_${user.specialty}.xlsx`);
+  };
+
+  const exportBaseSchoolsExcel = () => {
+    const dataToExport = baseSchools.map((bs: any, i: number) => ({
+      'م': i + 1,
+      'اسم المدرسة': bs.school_name,
+      'كود المدرسة': bs.school_code,
+      'المرحلة': bs.stage,
+      'النوعية': bs.school_type
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'المدارس');
+    XLSX.writeFile(wb, `المدارس_الأساسية.xlsx`);
+  };
 
   return (
     <div>
