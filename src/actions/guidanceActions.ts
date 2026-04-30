@@ -85,8 +85,8 @@ export async function getGuidanceData() {
 
 function getSubjectsForSpecialty(specialty: string): string[] {
   if (specialty === 'علوم') return ['علوم', 'علوم لغات', 'كيمياء', 'فيزياء', 'أحياء', 'كيمياء لغات', 'فيزياء لغات', 'أحياء لغات', 'علوم متكاملة'];
-  if (specialty === 'دراسات اجتماعية' || specialty === 'دراسات') return ['دراسات اجتماعية', 'دراسات', 'تاريخ', 'جغرافيا'];
-  if (specialty === 'لغة عربية') return ['لغة عربية', 'تربية إسلامية', 'تربية دينية'];
+  if (specialty === 'دراسات اجتماعية' || specialty === 'دراسات') return ['دراسات اجتماعية', 'دراسات', 'تاريخ', 'جغرافيا', 'تاريخ وجغرافيا'];
+  if (specialty === 'لغة عربية' || specialty === 'لغه عربيه') return ['لغة عربية', 'لغه عربيه', 'عربي', 'لغة عربية (تربية دينية)', 'تربية إسلامية', 'تربيه اسلاميه', 'تربية دينية', 'تربيه دينيه'];
   if (specialty === 'رياضيات') return ['رياضيات', 'رياضيات لغات'];
   return [specialty];
 }
@@ -146,6 +146,30 @@ export async function addSupervisorManually(data: { national_id: string; name: s
   }, { onConflict: 'national_id' });
 
   if (error) return { error: error.message };
+  revalidatePath('/guidance');
+  return { success: true };
+}
+
+export async function assignAnnualSchools(supervisorId: string, schoolIds: string[]) {
+  const user = await getUser();
+  if (!user || user.role !== 'guidance') return { error: 'غير مصرح لك بهذا الإجراء' };
+
+  // check if supervisor belongs to this guidance
+  const { data: sup } = await supabase.from('supervisors').select('id').eq('id', supervisorId).eq('specialty', user.specialty).single();
+  if (!sup) return { error: 'Unauthorized' };
+
+  // Delete existing
+  await supabase.from('supervisor_annual_schools').delete().eq('supervisor_id', supervisorId);
+
+  if (schoolIds.length > 0) {
+    const payload = schoolIds.map(id => ({
+      supervisor_id: supervisorId,
+      base_school_id: id,
+    }));
+    const { error } = await supabase.from('supervisor_annual_schools').insert(payload);
+    if (error) return { error: error.message };
+  }
+
   revalidatePath('/guidance');
   return { success: true };
 }

@@ -33,6 +33,10 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [showExcelSection, setShowExcelSection] = useState(false);
 
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedSupAssign, setSelectedSupAssign] = useState<any>(null);
+  const [assignedSchools, setAssignedSchools] = useState<string[]>([]);
+
   const [teacherSearch, setTeacherSearch] = useState('');
   const [baseSchoolSearch, setBaseSchoolSearch] = useState('');
   const [teacherContractFilter, setTeacherContractFilter] = useState('');
@@ -538,6 +542,15 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
                         ) : (
                           <span style={{ color: '#64748b', fontSize: 12 }}>لا توجد مدارس مسندة حتى الآن</span>
                         )}
+                        <div style={{ marginTop: 12 }}>
+                          <button onClick={() => {
+                            setSelectedSupAssign(sup);
+                            setAssignedSchools(mySchools.map((a: any) => a.base_school_id));
+                            setIsAssignModalOpen(true);
+                          }} className="btn-secondary no-print" style={{ padding: '6px 12px', fontSize: 12 }}>
+                            <Edit3 size={14} /> تعديل المدارس المسندة
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -713,6 +726,69 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════ Assign Schools Modal ══════ */}
+      {isAssignModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: '0 0 24px', fontSize: 20 }}>إسناد المدارس للموجه: {selectedSupAssign?.name}</h2>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: 12, maxHeight: 300, overflowY: 'auto',
+              display: 'flex', flexDirection: 'column', gap: 8
+            }}>
+              {baseSchools.length === 0 ? (
+                <span style={{ fontSize: 12, color: '#64748b' }}>لا توجد مدارس أساسية مسجلة</span>
+              ) : (
+                baseSchools.map((bs: any) => {
+                  const isSelected = assignedSchools.includes(bs.id);
+                  return (
+                    <label key={bs.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                      <input type="checkbox" checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignedSchools(prev => [...prev, bs.id]);
+                          } else {
+                            setAssignedSchools(prev => prev.filter(id => id !== bs.id));
+                          }
+                        }}
+                      />
+                      {bs.school_name}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                disabled={loading}
+                onClick={async () => {
+                  setLoading(true);
+                  const { assignAnnualSchools } = await import('@/actions/guidanceActions');
+                  const res = await assignAnnualSchools(selectedSupAssign.id, assignedSchools);
+                  setLoading(false);
+                  if (res?.error) {
+                    toast.error(res.error);
+                  } else {
+                    toast.success('تم الحفظ بنجاح');
+                    setIsAssignModalOpen(false);
+                    window.location.reload();
+                  }
+                }}
+              >
+                {loading ? 'جاري الحفظ...' : 'حفظ الإسناد'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setIsAssignModalOpen(false)}>
+                إلغاء
+              </button>
+            </div>
           </div>
         </div>
       )}
