@@ -220,9 +220,10 @@ export async function importTeachersExcel(formData: FormData) {
     const invalidTeachers: string[] = [];
 
     // ── STEP 1: Import Schools (base_schools) ──
+    let schoolRows: any[] = [];
     if (schoolsSheetName && workbook.Sheets[schoolsSheetName]) {
       const schoolsRaw = XLSX.utils.sheet_to_json<any>(workbook.Sheets[schoolsSheetName], { defval: null });
-      let schoolRows = schoolsRaw
+      schoolRows = schoolsRaw
         .filter((s: any) => {
           const code = findKey(s, ['code', 'school_code', 'كود المدرسة', 'الكود']);
           const name = findKey(s, ['name', 'school_name', 'اسم المدرسة', 'المدرسة']);
@@ -249,19 +250,44 @@ export async function importTeachersExcel(formData: FormData) {
             stage: row[3] ? String(row[3]).trim() : 'ابتدائي',
           }));
       }
+    }
 
-      if (schoolRows.length > 0) {
-        // Batch upsert schools (50 at a time)
-        for (let i = 0; i < schoolRows.length; i += 50) {
-          const batch = schoolRows.slice(i, i + 50);
-          const { error } = await supabaseAdmin.from('base_schools').upsert(
-            batch,
-            { onConflict: 'school_code', ignoreDuplicates: false }
-          );
-          if (error) throw new Error('خطأ في المدارس: ' + error.message);
+    // ── STEP 1.5: Extract schools from Teachers sheet if still no schools ──
+    const teachersSheet = workbook.Sheets[teachersSheetName];
+    const teachersRaw = teachersSheet ? XLSX.utils.sheet_to_json<any>(teachersSheet, { defval: null }) : [];
+
+    if (schoolRows.length === 0 && teachersRaw.length > 0) {
+      const uniqueSchools = new Map<string, any>();
+      for (const t of teachersRaw) {
+        const code = findKey(t, ['schoolCode', 'school_code', 'كود المدرسة', 'الكود', 'كود المدرسه']);
+        const name = findKey(t, ['schoolName', 'school_name', 'اسم المدرسة', 'المدرسة', 'اسم المدرسه']);
+        if (code && name) {
+          const codeStr = String(code).trim();
+          if (!uniqueSchools.has(codeStr)) {
+            uniqueSchools.set(codeStr, {
+              school_code: codeStr,
+              school_name: String(name).trim(),
+              stage: findKey(t, ['stageName', 'stage', 'المرحلة']) || 'ابتدائي',
+              school_type: findKey(t, ['typeName', 'type', 'school_type', 'النوع']) || 'رسمى',
+            });
+          }
         }
-        schoolsImported = schoolRows.length;
       }
+      schoolRows = Array.from(uniqueSchools.values());
+    }
+
+    // ── STEP 1.6: Upsert Schools ──
+    if (schoolRows.length > 0) {
+      // Batch upsert schools (50 at a time)
+      for (let i = 0; i < schoolRows.length; i += 50) {
+        const batch = schoolRows.slice(i, i + 50);
+        const { error } = await supabaseAdmin.from('base_schools').upsert(
+          batch,
+          { onConflict: 'school_code', ignoreDuplicates: false }
+        );
+        if (error) throw new Error('خطأ في المدارس: ' + error.message);
+      }
+      schoolsImported = schoolRows.length;
     }
 
     // ── Get school code → id mapping ──
@@ -270,9 +296,7 @@ export async function importTeachersExcel(formData: FormData) {
     (allSchools || []).forEach((s: any) => { schoolMap[s.school_code] = s.id; });
 
     // ── STEP 2: Import Teachers ──
-    const teachersSheet = workbook.Sheets[teachersSheetName];
-    if (teachersSheet) {
-      const teachersRaw = XLSX.utils.sheet_to_json<any>(teachersSheet, { defval: null });
+    if (teachersRaw.length > 0) {
       const teacherRows: any[] = [];
       const seenNids = new Set<string>();
 
