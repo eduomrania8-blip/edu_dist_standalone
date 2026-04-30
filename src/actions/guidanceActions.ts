@@ -70,7 +70,15 @@ export async function getGuidanceData() {
       .select('*, base_school:base_schools(id, school_name, stage, school_type)')
       .in('subject', subjects);
     if (teachersData) teachers = teachersData;
+    if (teachersData) teachers = teachersData;
   }
+
+  // Fetch settings for PDF reporting
+  const { data: settingsData } = await supabase.from('settings').select('*');
+  const settings = settingsData?.reduce((acc: any, curr: any) => {
+    acc[curr.key] = curr.value;
+    return acc;
+  }, {}) || {};
 
   return { 
     supervisors, 
@@ -79,6 +87,7 @@ export async function getGuidanceData() {
     base_schools: base_schools || [],
     annual_schools,
     teachers,
+    settings,
     specialty: user.specialty 
   };
 }
