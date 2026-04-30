@@ -60,7 +60,7 @@ export async function getGuidanceData() {
   }
 
   // Determine subjects based on specialty
-  const subjects = getSubjectsForSpecialty(user.specialty || '');
+  const subjects = getSubjectsForSpecialty((user.specialty || '').trim());
   
   // Fetch teachers for these subjects
   let teachers = [];
@@ -84,11 +84,13 @@ export async function getGuidanceData() {
 }
 
 function getSubjectsForSpecialty(specialty: string): string[] {
-  if (specialty === 'علوم') return ['علوم', 'علوم لغات', 'كيمياء', 'فيزياء', 'أحياء', 'كيمياء لغات', 'فيزياء لغات', 'أحياء لغات', 'علوم متكاملة'];
-  if (specialty === 'دراسات اجتماعية' || specialty === 'دراسات') return ['دراسات اجتماعية', 'دراسات', 'تاريخ', 'جغرافيا', 'تاريخ وجغرافيا'];
-  if (specialty === 'لغة عربية' || specialty === 'لغه عربيه') return ['لغة عربية', 'لغه عربيه', 'عربي', 'لغة عربية (تربية دينية)', 'تربية إسلامية', 'تربيه اسلاميه', 'تربية دينية', 'تربيه دينيه'];
-  if (specialty === 'رياضيات') return ['رياضيات', 'رياضيات لغات'];
-  return [specialty];
+  const cleanSpec = specialty.replace(/^ال/, '').trim(); // Remove "ال" prefix
+  
+  if (cleanSpec === 'علوم') return ['علوم', 'علوم لغات', 'كيمياء', 'فيزياء', 'أحياء', 'كيمياء لغات', 'فيزياء لغات', 'أحياء لغات', 'علوم متكاملة'];
+  if (cleanSpec === 'دراسات اجتماعية' || cleanSpec === 'دراسات') return ['دراسات اجتماعية', 'دراسات', 'تاريخ', 'جغرافيا', 'تاريخ وجغرافيا'];
+  if (cleanSpec === 'لغة عربية' || cleanSpec === 'لغه عربيه') return ['لغة عربية', 'لغه عربيه', 'عربي', 'لغة عربية (تربية دينية)', 'تربية إسلامية', 'تربيه اسلاميه', 'تربية دينية', 'تربيه دينيه'];
+  if (cleanSpec === 'رياضيات') return ['رياضيات', 'رياضيات لغات'];
+  return [specialty, cleanSpec];
 }
 
 export async function updateSupervisorActive(id: string, is_active: boolean) {

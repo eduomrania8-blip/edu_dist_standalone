@@ -192,7 +192,7 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
   ).length;
 
   const filteredTeachers = teachers.filter((t: any) => {
-    const matchSearch = t.name.includes(teacherSearch) || t.national_id.includes(teacherSearch);
+    const matchSearch = (t.name || '').includes(teacherSearch) || (t.national_id || '').includes(teacherSearch);
     const matchContract = teacherContractFilter ? t.contract_type === teacherContractFilter : true;
     return matchSearch && matchContract;
   });
