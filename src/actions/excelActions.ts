@@ -40,6 +40,32 @@ function excelDateToISO(val: any): string | null {
 }
 
 // ─────────────────────────────────────────────
+// Helper: Find object key loosely
+// ─────────────────────────────────────────────
+function findKey(obj: any, possibleKeys: string[]): any {
+  if (!obj) return undefined;
+  const keys = Object.keys(obj);
+  for (const k of keys) {
+    const normalizedKey = k.replace(/\s+/g, '').replace(/ة/g, 'ه').toLowerCase();
+    for (const pk of possibleKeys) {
+      const normalizedPk = pk.replace(/\s+/g, '').replace(/ة/g, 'ه').toLowerCase();
+      if (normalizedKey === normalizedPk) {
+        return obj[k];
+      }
+    }
+  }
+  return undefined;
+}
+
+// ─────────────────────────────────────────────
+// Helper: Normalize Arabic Digits
+// ─────────────────────────────────────────────
+function normalizeDigits(str: string): string {
+  if (!str) return '';
+  return String(str).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+}
+
+// ─────────────────────────────────────────────
 // Helper: National ID → DOB + Governorate
 // ─────────────────────────────────────────────
 function parseNID(nid: string) {
@@ -198,15 +224,15 @@ export async function importTeachersExcel(formData: FormData) {
       const schoolsRaw = XLSX.utils.sheet_to_json<any>(workbook.Sheets[schoolsSheetName], { defval: null });
       const schoolRows = schoolsRaw
         .filter((s: any) => {
-          const code = s.code || s.school_code || s['كود المدرسة'];
-          const name = s.name || s.school_name || s['اسم المدرسة'];
+          const code = findKey(s, ['code', 'school_code', 'كود المدرسة']);
+          const name = findKey(s, ['name', 'school_name', 'اسم المدرسة']);
           return code && name;
         })
         .map((s: any) => ({
-          school_code: String(s.code || s.school_code || s['كود المدرسة']),
-          school_name: String(s.name || s.school_name || s['اسم المدرسة']).trim(),
-          stage: s.stageName || s.stage || s['المرحلة'] || 'ابتدائي',
-          school_type: s.typeName || s.type || s.school_type || s['النوع'] || 'رسمى',
+          school_code: String(findKey(s, ['code', 'school_code', 'كود المدرسة'])).trim(),
+          school_name: String(findKey(s, ['name', 'school_name', 'اسم المدرسة'])).trim(),
+          stage: findKey(s, ['stageName', 'stage', 'المرحلة']) || 'ابتدائي',
+          school_type: findKey(s, ['typeName', 'type', 'school_type', 'النوع']) || 'رسمى',
         }));
 
       if (schoolRows.length > 0) {
@@ -236,11 +262,13 @@ export async function importTeachersExcel(formData: FormData) {
       const seenNids = new Set<string>();
 
       for (const t of teachersRaw) {
-        const nid = t.nid || t.national_id || t.nationalId || t.NID || t['الرقم القومي'] || t['رقم قومي'];
-        const name = t.name || t['الاسم'] || t['اسم المعلم'];
+        const nid = findKey(t, ['nid', 'national_id', 'nationalId', 'الرقم القومي', 'رقم قومي']);
+        const name = findKey(t, ['name', 'الاسم', 'اسم المعلم']);
         if (!nid || !name) continue;
 
-        const nidStr = String(nid).replace(/\s/g, '').padStart(14, '0');
+        // Normalize arabic numerals to english, then strip all non-digits
+        const englishNid = normalizeDigits(String(nid));
+        const nidStr = englishNid.replace(/\D/g, '').padStart(14, '0');
         
         // Prevent Postgres "ON CONFLICT DO UPDATE command cannot affect row a second time"
         if (seenNids.has(nidStr)) {
@@ -258,25 +286,25 @@ export async function importTeachersExcel(formData: FormData) {
 
         seenNids.add(nidStr);
 
-        const schoolCode = t.schoolCode || t.school_code || t['كود المدرسة'];
-        const base_school_id = schoolCode ? (schoolMap[String(schoolCode)] || null) : null;
+        const schoolCode = findKey(t, ['schoolCode', 'school_code', 'كود المدرسة']);
+        const base_school_id = schoolCode ? (schoolMap[String(schoolCode).trim()] || null) : null;
 
         teacherRows.push({
           national_id: nidStr,
           name: String(name).trim(),
-          phone: t.phone || t['التليفون'] ? String(t.phone || t['التليفون']) : null,
-          address: t.address || t['العنوان'] ? String(t.address || t['العنوان']).trim() : null,
-          subject: t.subject || t['المادة'] || null,
-          teacher_code: t.teacherCode || t.teacher_code || t['كود المعلم'] ? String(t.teacherCode || t.teacher_code || t['كود المعلم']) : null,
-          qualification: t.qualification || t['المؤهل'] || null,
-          university: t.university || t['الجامعة'] ? String(t.university || t['الجامعة']).trim() : null,
-          grad_year: t.gradYear || t.grad_year || t['سنة التخرج'] ? Number(t.gradYear || t.grad_year || t['سنة التخرج']) : null,
-          grade: t.grade || t['التقدير'] || null,
-          contract_type: t.contractType || t.contract_type || t['نوع التعاقد'] || 'بالأجر',
-          start_date: excelDateToISO(t.startDate || t.start_date || t['تاريخ التعيين']),
-          diploma: t.diploma || t['الدبلوم'] || null,
-          dob: excelDateToISO(t.dob || t['تاريخ الميلاد']) || dob,
-          gov: t.gov || t['المحافظة'] || gov,
+          phone: findKey(t, ['phone', 'التليفون']) ? String(findKey(t, ['phone', 'التليفون'])) : null,
+          address: findKey(t, ['address', 'العنوان']) ? String(findKey(t, ['address', 'العنوان'])).trim() : null,
+          subject: findKey(t, ['subject', 'المادة']) || null,
+          teacher_code: findKey(t, ['teacherCode', 'teacher_code', 'كود المعلم']) ? String(findKey(t, ['teacherCode', 'teacher_code', 'كود المعلم'])) : null,
+          qualification: findKey(t, ['qualification', 'المؤهل']) || null,
+          university: findKey(t, ['university', 'الجامعة']) ? String(findKey(t, ['university', 'الجامعة'])).trim() : null,
+          grad_year: findKey(t, ['gradYear', 'grad_year', 'سنة التخرج']) ? Number(findKey(t, ['gradYear', 'grad_year', 'سنة التخرج'])) : null,
+          grade: findKey(t, ['grade', 'التقدير']) || null,
+          contract_type: findKey(t, ['contractType', 'contract_type', 'نوع التعاقد']) || 'بالأجر',
+          start_date: excelDateToISO(findKey(t, ['startDate', 'start_date', 'تاريخ التعيين'])),
+          diploma: findKey(t, ['diploma', 'الدبلوم']) || null,
+          dob: excelDateToISO(findKey(t, ['dob', 'تاريخ الميلاد'])) || dob,
+          gov: findKey(t, ['gov', 'المحافظة']) || gov,
           base_school_id,
           is_active: true,
         });
