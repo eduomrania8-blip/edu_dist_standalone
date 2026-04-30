@@ -12,7 +12,7 @@ const EMPTY_FORM: BaseSchoolFormData = {
   school_code: '',
   school_name: '',
   stage: 'ابتدائي',
-  school_type: 'حكومي',
+  school_type: 'رسمى',
   administration: 'العمرانية',
 };
 
@@ -24,11 +24,13 @@ const stageColor: Record<string, string> = {
 };
 
 const typeColor: Record<string, string> = {
-  'حكومي': 'badge-green',
-  'لغات': 'badge-blue',
-  'خاص': 'badge-rose',
-  'تجريبي': 'badge-amber',
-  'فني': 'badge-purple',
+  'رسمى': 'badge-green',
+  'رسمى لغات': 'badge-blue',
+  'خاص عربى': 'badge-rose',
+  'خاص لغات': 'badge-purple',
+  'دولى': 'badge-amber',
+  'ثقافى': 'badge-cyan',
+  'فنى': 'badge-purple',
 };
 
 export default function BaseSchoolsPage() {
@@ -153,6 +155,9 @@ export default function BaseSchoolsPage() {
             {SCHOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
+        <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+          🖨️ طباعة
+        </button>
         <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
           {filtered.length} نتيجة
         </span>

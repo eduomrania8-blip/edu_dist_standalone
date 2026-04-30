@@ -6,18 +6,36 @@ import { generateGuidanceTemplate, importGuidanceExcel } from '@/actions/guidanc
 import toast from 'react-hot-toast';
 import {
   Users, Edit3, CheckCircle2, XCircle, Download, Upload,
-  UserPlus, RefreshCw, FileSpreadsheet, ChevronDown, ChevronUp
+  UserPlus, RefreshCw, FileSpreadsheet, ChevronDown, ChevronUp,
+  Building2, Map, GraduationCap, ClipboardList, Search
 } from 'lucide-react';
 
+const TABS = [
+  { id: 'supervisors', label: 'الموجهون', icon: Users },
+  { id: 'base-schools', label: 'المدارس الأساسية', icon: Building2 },
+  { id: 'distribution', label: 'توزيع الموجهون', icon: Map },
+  { id: 'teachers', label: 'بيانات المعلمين', icon: GraduationCap },
+  { id: 'followup', label: 'خطة المتابعة', icon: ClipboardList },
+];
+
 export default function GuidanceDashboard({ data, user }: { data: any, user: any }) {
+  const [activeTab, setActiveTab] = useState('supervisors');
+
   const [supervisors, setSupervisors] = useState(data.supervisors || []);
   const [wishes, setWishes] = useState(data.wishes || []);
   const [schools] = useState(data.schools || []);
+  const [baseSchools] = useState(data.base_schools || []);
+  const [annualSchools] = useState(data.annual_schools || []);
+  const [teachers] = useState(data.teachers || []);
 
   const [selectedSup, setSelectedSup] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [showExcelSection, setShowExcelSection] = useState(false);
+
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [baseSchoolSearch, setBaseSchoolSearch] = useState('');
+  const [teacherContractFilter, setTeacherContractFilter] = useState('');
 
   const [wishForm, setWishForm] = useState({
     wish_1: '', wish_2: '', wish_3: '', wish_4: '', notes: ''
@@ -94,7 +112,6 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
     }
     setLoading(true);
     try {
-      // We import supabase dynamically to keep this as a client action
       const { addSupervisorManually } = await import('@/actions/guidanceActions');
       const res = await addSupervisorManually(addForm);
       if (res?.error) {
@@ -103,7 +120,6 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
         toast.success('تم إضافة الموجه بنجاح');
         setIsAddModalOpen(false);
         setAddForm({ national_id: '', name: '', phone: '' });
-        // Refresh page to get new data
         window.location.reload();
       }
     } catch (err: any) {
@@ -122,7 +138,6 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
         toast.error(String(result.error));
         return;
       }
-      // Convert base64 to blob and download
       const byteCharacters = atob(result.base64);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -172,6 +187,16 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
     wishes.some((w: any) => w.supervisor_id === s.id && (w.wish_1 || w.wish_2 || w.wish_3 || w.wish_4))
   ).length;
 
+  const filteredTeachers = teachers.filter((t: any) => {
+    const matchSearch = t.name.includes(teacherSearch) || t.national_id.includes(teacherSearch);
+    const matchContract = teacherContractFilter ? t.contract_type === teacherContractFilter : true;
+    return matchSearch && matchContract;
+  });
+
+  const filteredBaseSchools = baseSchools.filter((s: any) => {
+    return s.school_name.includes(baseSchoolSearch) || s.school_code.includes(baseSchoolSearch);
+  });
+
   return (
     <div>
       {/* ══════ Header ══════ */}
@@ -181,217 +206,413 @@ export default function GuidanceDashboard({ data, user }: { data: any, user: any
           <p className="page-subtitle">إدارة الموجهين وتسجيل الرغبات الخاصة بتخصصك</p>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button className="btn-secondary" onClick={() => setIsAddModalOpen(true)} style={{ padding: '8px 16px', fontSize: 13 }}>
-            <UserPlus size={16} />
-            إضافة موجه
-          </button>
+          {activeTab === 'supervisors' && (
+            <button className="btn-secondary" onClick={() => setIsAddModalOpen(true)} style={{ padding: '8px 16px', fontSize: 13 }}>
+              <UserPlus size={16} />
+              إضافة موجه
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ══════ Stats Cards ══════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(34,211,238,0.1)', color: 'var(--accent-cyan)' }}>
-            <Users size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>إجمالي الموجهين</div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{supervisors.length}</div>
-          </div>
-        </div>
-
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(52,211,153,0.1)', color: 'var(--accent-emerald)' }}>
-            <CheckCircle2 size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>موجهين متاحين</div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{activeCount}</div>
-          </div>
-        </div>
-
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
-            <Edit3 size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>سجلوا رغبات</div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{wishFilledCount}</div>
-          </div>
-        </div>
+      {/* ══════ Tabs Navigation ══════ */}
+      <div className="no-print" style={{ 
+        display: 'flex', gap: 10, marginBottom: 24, overflowX: 'auto', paddingBottom: 8,
+        borderBottom: '1px solid rgba(255,255,255,0.05)'
+      }}>
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
+                background: isActive ? 'rgba(34,211,238,0.1)' : 'transparent',
+                color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                border: 'none', borderRadius: '10px 10px 0 0', cursor: 'pointer',
+                borderBottom: isActive ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+                fontWeight: isActive ? 700 : 500, fontSize: 14, whiteSpace: 'nowrap',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ══════ Excel Template Section ══════ */}
-      <div className="glass-card" style={{ marginBottom: 20, overflow: 'hidden' }}>
-        <button
-          onClick={() => setShowExcelSection(!showExcelSection)}
-          style={{
-            width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-            padding: '16px 20px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            color: '#f1f5f9',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FileSpreadsheet size={18} color="#22d3ee" />
-            <span style={{ fontWeight: 700, fontSize: 14 }}>استيراد / تصدير عبر Excel</span>
-          </div>
-          {showExcelSection ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-
-        {showExcelSection && (
-          <div style={{
-            padding: '0 20px 20px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-              {/* Download Template */}
-              <div style={{
-                background: 'rgba(34,211,238,0.04)',
-                borderRadius: 12,
-                padding: 20,
-                border: '1px solid rgba(34,211,238,0.1)',
-                textAlign: 'center',
-              }}>
-                <Download size={28} color="#22d3ee" style={{ marginBottom: 10 }} />
-                <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
-                  تنزيل التمبلت
-                </h4>
-                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
-                  قم بتنزيل ملف Excel يحتوي على بيانات الموجهين الحاليين وقائمة المدارس المتاحة. أكمل البيانات والرغبات ثم أعد رفعه.
-                </p>
-                <button
-                  className="btn-primary"
-                  onClick={handleDownloadTemplate}
-                  disabled={downloading}
-                  style={{ padding: '10px 24px', fontSize: 13 }}
-                >
-                  {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                  {downloading ? 'جاري التنزيل...' : 'تنزيل التمبلت'}
-                </button>
+      {/* ══════ TAB CONTENT: Supervisors ══════ */}
+      {activeTab === 'supervisors' && (
+        <>
+          {/* Stats Cards */}
+          <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
+            <div className="glass-card stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(34,211,238,0.1)', color: 'var(--accent-cyan)' }}>
+                <Users size={24} />
               </div>
-
-              {/* Upload Filled Template */}
-              <div style={{
-                background: 'rgba(167,139,250,0.04)',
-                borderRadius: 12,
-                padding: 20,
-                border: '1px solid rgba(167,139,250,0.1)',
-                textAlign: 'center',
-              }}>
-                <Upload size={28} color="#a78bfa" style={{ marginBottom: 10 }} />
-                <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
-                  رفع التمبلت المكتمل
-                </h4>
-                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
-                  بعد ملء البيانات والرغبات في الملف، قم برفعه هنا لتحديث قاعدة البيانات تلقائياً.
-                </p>
-                <form onSubmit={handleUploadTemplate} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-                  <input
-                    type="file"
-                    name="file"
-                    accept=".xlsx,.xls"
-                    required
-                    className="form-input"
-                    style={{ fontSize: 12, width: '100%' }}
-                  />
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={uploading}
-                    style={{ padding: '10px 24px', fontSize: 13, background: 'linear-gradient(135deg, #a78bfa, #818cf8)' }}
-                  >
-                    {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-                    {uploading ? 'جاري الرفع...' : 'رفع واستيراد البيانات'}
-                  </button>
-                </form>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>إجمالي الموجهين</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{supervisors.length}</div>
               </div>
             </div>
 
-            {/* Instructions */}
-            <div style={{
-              marginTop: 16,
-              background: 'rgba(255,255,255,0.02)',
-              borderRadius: 10,
-              padding: '14px 18px',
-              fontSize: 12,
-              color: '#94a3b8',
-              lineHeight: 1.8,
-            }}>
-              <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#f1f5f9', fontSize: 13 }}>📋 تعليمات الاستخدام:</p>
-              <ol style={{ margin: 0, paddingRight: 20 }}>
-                <li>قم بتنزيل التمبلت — سيحتوي على بيانات الموجهين المسجلين حالياً (إن وجد).</li>
-                <li>في شيت <strong>&quot;الموجهين&quot;</strong>: أضف أو عدّل بيانات الموجهين (الكود، الاسم، التليفون، الحالة).</li>
-                <li>في شيت <strong>&quot;الرغبات&quot;</strong>: اكتب <strong>كود المدرسة</strong> المطابق لكل رغبة (راجع شيت &quot;دليل المدارس&quot;).</li>
-                <li>احفظ الملف وارفعه من خلال زر &quot;رفع واستيراد البيانات&quot;.</li>
-              </ol>
+            <div className="glass-card stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(52,211,153,0.1)', color: 'var(--accent-emerald)' }}>
+                <CheckCircle2 size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>موجهين متاحين</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{activeCount}</div>
+              </div>
+            </div>
+
+            <div className="glass-card stat-card">
+              <div className="stat-icon" style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+                <Edit3 size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>سجلوا رغبات</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{wishFilledCount}</div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ══════ Supervisors Table ══════ */}
-      <div className="glass-card" style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>الرقم القومي</th>
-              <th>التليفون</th>
-              <th>الرغبات المسجلة</th>
-              <th>الإتاحة</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {supervisors.map((sup: any) => {
-              const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
-              const wishesCount = supWishes ? [supWishes.wish_1, supWishes.wish_2, supWishes.wish_3, supWishes.wish_4].filter(Boolean).length : 0;
+          {/* Excel Template Section */}
+          <div className="glass-card no-print" style={{ marginBottom: 20, overflow: 'hidden' }}>
+            <button
+              onClick={() => setShowExcelSection(!showExcelSection)}
+              style={{
+                width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                padding: '16px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                color: '#f1f5f9',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <FileSpreadsheet size={18} color="#22d3ee" />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>استيراد / تصدير عبر Excel</span>
+              </div>
+              {showExcelSection ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
 
-              return (
-                <tr key={sup.id}>
-                  <td style={{ fontWeight: 600 }}>{sup.name}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{sup.national_id || '---'}</td>
-                  <td style={{ fontSize: 13, color: '#94a3b8' }}>{sup.phone || '---'}</td>
-                  <td>
-                    <span className={`badge ${wishesCount > 0 ? 'badge-green' : 'badge-rose'}`}>
-                      {wishesCount} رغبات
-                    </span>
-                  </td>
-                  <td>
+            {showExcelSection && (
+              <div style={{
+                padding: '0 20px 20px',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                  {/* Download Template */}
+                  <div style={{
+                    background: 'rgba(34,211,238,0.04)',
+                    borderRadius: 12,
+                    padding: 20,
+                    border: '1px solid rgba(34,211,238,0.1)',
+                    textAlign: 'center',
+                  }}>
+                    <Download size={28} color="#22d3ee" style={{ marginBottom: 10 }} />
+                    <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
+                      تنزيل التمبلت
+                    </h4>
+                    <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+                      قم بتنزيل ملف Excel يحتوي على بيانات الموجهين الحاليين وقائمة المدارس المتاحة. أكمل البيانات والرغبات ثم أعد رفعه.
+                    </p>
                     <button
-                      onClick={() => toggleActive(sup.id, sup.is_active)}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        color: sup.is_active ? 'var(--accent-emerald)' : 'var(--text-muted)'
-                      }}
+                      className="btn-primary"
+                      onClick={handleDownloadTemplate}
+                      disabled={downloading}
+                      style={{ padding: '10px 24px', fontSize: 13 }}
                     >
-                      {sup.is_active ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>
-                        {sup.is_active ? 'متاح' : 'غير متاح'}
-                      </span>
+                      {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                      {downloading ? 'جاري التنزيل...' : 'تنزيل التمبلت'}
                     </button>
-                  </td>
-                  <td>
-                    <button onClick={() => openWishesModal(sup)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
-                      <Edit3 size={14} />
-                      تعديل الرغبات
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {supervisors.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
-                  لا يوجد موجهين مسجلين. يمكنك إضافتهم يدوياً أو عبر رفع ملف Excel.
-                </td>
-              </tr>
+                  </div>
+
+                  {/* Upload Filled Template */}
+                  <div style={{
+                    background: 'rgba(167,139,250,0.04)',
+                    borderRadius: 12,
+                    padding: 20,
+                    border: '1px solid rgba(167,139,250,0.1)',
+                    textAlign: 'center',
+                  }}>
+                    <Upload size={28} color="#a78bfa" style={{ marginBottom: 10 }} />
+                    <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
+                      رفع التمبلت المكتمل
+                    </h4>
+                    <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+                      بعد ملء البيانات والرغبات في الملف، قم برفعه هنا لتحديث قاعدة البيانات تلقائياً.
+                    </p>
+                    <form onSubmit={handleUploadTemplate} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                      <input
+                        type="file"
+                        name="file"
+                        accept=".xlsx,.xls"
+                        required
+                        className="form-input"
+                        style={{ fontSize: 12, width: '100%' }}
+                      />
+                      <button
+                        type="submit"
+                        className="btn-primary"
+                        disabled={uploading}
+                        style={{ padding: '10px 24px', fontSize: 13, background: 'linear-gradient(135deg, #a78bfa, #818cf8)' }}
+                      >
+                        {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                        {uploading ? 'جاري الرفع...' : 'رفع واستيراد البيانات'}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div style={{
+                  marginTop: 16,
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: 10,
+                  padding: '14px 18px',
+                  fontSize: 12,
+                  color: '#94a3b8',
+                  lineHeight: 1.8,
+                }}>
+                  <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#f1f5f9', fontSize: 13 }}>📋 تعليمات الاستخدام:</p>
+                  <ol style={{ margin: 0, paddingRight: 20 }}>
+                    <li>قم بتنزيل التمبلت — سيحتوي على بيانات الموجهين المسجلين حالياً (إن وجد).</li>
+                    <li>في شيت <strong>"الموجهين"</strong>: أضف أو عدّل بيانات الموجهين (الكود، الاسم، التليفون، الحالة).</li>
+                    <li>في شيت <strong>"الرغبات"</strong>: اكتب <strong>كود المدرسة</strong> المطابق لكل رغبة (راجع شيت "دليل المدارس").</li>
+                    <li>احفظ الملف وارفعه من خلال زر "رفع واستيراد البيانات".</li>
+                  </ol>
+                </div>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+
+          <div className="filters-bar" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+              🖨️ طباعة
+            </button>
+          </div>
+
+          {/* Supervisors Table */}
+          <div className="glass-card" style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>الاسم</th>
+                  <th>الرقم القومي</th>
+                  <th>التليفون</th>
+                  <th>الرغبات المسجلة</th>
+                  <th>الإتاحة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supervisors.map((sup: any) => {
+                  const supWishes = wishes.find((w: any) => w.supervisor_id === sup.id);
+                  const wishesCount = supWishes ? [supWishes.wish_1, supWishes.wish_2, supWishes.wish_3, supWishes.wish_4].filter(Boolean).length : 0;
+
+                  return (
+                    <tr key={sup.id}>
+                      <td style={{ fontWeight: 600 }}>{sup.name}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{sup.national_id || '---'}</td>
+                      <td style={{ fontSize: 13, color: '#94a3b8' }}>{sup.phone || '---'}</td>
+                      <td>
+                        <span className={`badge ${wishesCount > 0 ? 'badge-green' : 'badge-rose'}`}>
+                          {wishesCount} رغبات
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => toggleActive(sup.id, sup.is_active)}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            color: sup.is_active ? 'var(--accent-emerald)' : 'var(--text-muted)'
+                          }}
+                        >
+                          {sup.is_active ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>
+                            {sup.is_active ? 'متاح' : 'غير متاح'}
+                          </span>
+                        </button>
+                      </td>
+                      <td>
+                        <button onClick={() => openWishesModal(sup)} className="btn-secondary no-print" style={{ padding: '6px 12px', fontSize: 12 }}>
+                          <Edit3 size={14} />
+                          تعديل الرغبات
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {supervisors.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                      لا يوجد موجهين مسجلين. يمكنك إضافتهم يدوياً أو عبر رفع ملف Excel.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ══════ TAB CONTENT: Base Schools ══════ */}
+      {activeTab === 'base-schools' && (
+        <>
+          <div className="glass-card filters-bar" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input className="form-input" style={{ paddingRight: 36 }} placeholder="بحث باسم أو كود المدرسة..."
+                value={baseSchoolSearch} onChange={e => setBaseSchoolSearch(e.target.value)} />
+            </div>
+            <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+              🖨️ طباعة
+            </button>
+            <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{filteredBaseSchools.length} مدرسة</span>
+          </div>
+
+          <div className="glass-card" style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>المدرسة</th>
+                  <th>المرحلة</th>
+                  <th>النوع</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBaseSchools.map((s: any) => (
+                  <tr key={s.id}>
+                    <td style={{ fontFamily: 'monospace', fontSize: 13, color: '#94a3b8' }}>{s.school_code}</td>
+                    <td style={{ fontWeight: 600 }}>{s.school_name}</td>
+                    <td><span className="badge badge-purple">{s.stage}</span></td>
+                    <td><span className="badge badge-blue">{s.school_type}</span></td>
+                  </tr>
+                ))}
+                {filteredBaseSchools.length === 0 && (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>لا توجد مدارس</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ══════ TAB CONTENT: Supervisor Distribution ══════ */}
+      {activeTab === 'distribution' && (
+        <>
+          <div className="filters-bar" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+              🖨️ طباعة
+            </button>
+          </div>
+          
+          <div className="glass-card" style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>الموجه</th>
+                  <th>المدارس المسندة (مدارس المتابعة السنوية)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supervisors.map((sup: any) => {
+                  const mySchools = annualSchools.filter((a: any) => a.supervisor_id === sup.id);
+                  return (
+                    <tr key={sup.id}>
+                      <td style={{ fontWeight: 600 }}>{sup.name}</td>
+                      <td>
+                        {mySchools.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {mySchools.map((a: any) => (
+                              <span key={a.id} className="badge badge-cyan">
+                                {a.base_school?.school_name || 'مدرسة غير معروفة'}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#64748b', fontSize: 12 }}>لا توجد مدارس مسندة حتى الآن</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ══════ TAB CONTENT: Teachers ══════ */}
+      {activeTab === 'teachers' && (
+        <>
+          <div className="glass-card filters-bar" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', flex: '1 1 200px' }}>
+              <Search size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input className="form-input" style={{ paddingRight: 36 }} placeholder="بحث بالاسم أو الرقم القومي..."
+                value={teacherSearch} onChange={e => setTeacherSearch(e.target.value)} />
+            </div>
+            <select className="form-input" style={{ minWidth: 140 }} value={teacherContractFilter} onChange={e => setTeacherContractFilter(e.target.value)}>
+              <option value="">كل أنواع التعيين</option>
+              <option value="بالأجر">بالأجر</option>
+              <option value="أساسي">أساسي</option>
+              <option value="بالمعاش">بالمعاش</option>
+            </select>
+            <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+              🖨️ طباعة
+            </button>
+            <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{filteredTeachers.length} معلم</span>
+          </div>
+
+          <div className="glass-card" style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>الاسم</th>
+                  <th>الرقم القومي</th>
+                  <th>المادة</th>
+                  <th>المدرسة</th>
+                  <th>نوع التعيين</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTeachers.map((t: any) => (
+                  <tr key={t.id}>
+                    <td style={{ fontWeight: 600 }}>{t.name}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 13, color: '#94a3b8' }}>{t.national_id}</td>
+                    <td>{t.subject}</td>
+                    <td>{t.base_school?.school_name || 'غير مسكن'}</td>
+                    <td>
+                      <span className={`badge ${t.contract_type === 'بالأجر' ? 'badge-amber' : 'badge-green'}`}>
+                        {t.contract_type}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {filteredTeachers.length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>لا يوجد معلمين</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ══════ TAB CONTENT: Follow Up Plan ══════ */}
+      {activeTab === 'followup' && (
+        <div className="glass-card" style={{ padding: 64, textAlign: 'center' }}>
+          <ClipboardList size={64} color="var(--accent-purple)" style={{ opacity: 0.5, margin: '0 auto 20px' }} />
+          <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: '#f1f5f9' }}>خطة المتابعة</h2>
+          <p style={{ color: '#94a3b8', fontSize: 15, maxWidth: 400, margin: '0 auto' }}>
+            هذه الميزة قيد التطوير. قريباً سيتمكن الموجه من إنشاء جداول خطة المتابعة اليومية والأسبوعية للمدارس المسندة إليه.
+          </p>
+        </div>
+      )}
 
       {/* ══════ Wishes Modal ══════ */}
       {isModalOpen && (

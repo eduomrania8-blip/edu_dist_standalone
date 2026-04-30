@@ -1,6 +1,6 @@
 'use server';
 
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 import { getUser } from './authActions';
 import { revalidatePath } from 'next/cache';
 
@@ -37,18 +37,58 @@ export async function getGuidanceData() {
   }
 
   // Fetch schools for wish selection
-  const { data: schools, error: schoolsError } = await supabase
+  const { data: schools } = await supabase
     .from('schools')
     .select('id, school_name, school_type, stage')
     .eq('is_active', true)
     .order('school_name');
 
+  // Fetch all base schools (needed for the new tabs)
+  const { data: base_schools } = await supabase
+    .from('base_schools')
+    .select('*')
+    .order('school_name');
+
+  // Fetch annual_schools for these supervisors
+  let annual_schools = [];
+  if (supIds.length > 0) {
+    const { data: annualData } = await supabase
+      .from('supervisor_annual_schools')
+      .select('*, base_school:base_schools(*)')
+      .in('supervisor_id', supIds);
+    if (annualData) annual_schools = annualData;
+  }
+
+  // Determine subjects based on specialty
+  const subjects = getSubjectsForSpecialty(user.specialty || '');
+  
+  // Fetch teachers for these subjects
+  let teachers = [];
+  if (subjects.length > 0) {
+    const { data: teachersData } = await supabase
+      .from('teachers')
+      .select('*, base_school:base_schools(id, school_name, stage, school_type)')
+      .in('subject', subjects);
+    if (teachersData) teachers = teachersData;
+  }
+
   return { 
     supervisors, 
     wishes, 
     schools: schools || [],
+    base_schools: base_schools || [],
+    annual_schools,
+    teachers,
     specialty: user.specialty 
   };
+}
+
+function getSubjectsForSpecialty(specialty: string): string[] {
+  if (specialty === 'علوم') return ['علوم', 'علوم لغات', 'كيمياء', 'فيزياء', 'أحياء', 'كيمياء لغات', 'فيزياء لغات', 'أحياء لغات', 'علوم متكاملة'];
+  if (specialty === 'دراسات اجتماعية' || specialty === 'دراسات') return ['دراسات اجتماعية', 'دراسات', 'تاريخ', 'جغرافيا'];
+  if (specialty === 'لغة عربية') return ['لغة عربية', 'تربية إسلامية', 'تربية دينية'];
+  if (specialty === 'رياضيات') return ['رياضيات', 'رياضيات لغات'];
+  return [specialty];
 }
 
 export async function updateSupervisorActive(id: string, is_active: boolean) {

@@ -12,7 +12,7 @@ const EMPTY_FORM: SchoolFormData = {
   school_code: '',
   school_name: '',
   stage: 'ابتدائي',
-  school_type: 'حكومي',
+  school_type: 'رسمى',
   specialization: '',
   needs_count: 1,
   address: '',
@@ -27,11 +27,13 @@ const stageColor: Record<string, string> = {
 };
 
 const typeColor: Record<string, string> = {
-  'حكومي': 'badge-green',
-  'لغات': 'badge-blue',
-  'خاص': 'badge-rose',
-  'تجريبي': 'badge-amber',
-  'فني': 'badge-purple',
+  'رسمى': 'badge-green',
+  'رسمى لغات': 'badge-blue',
+  'خاص عربى': 'badge-rose',
+  'خاص لغات': 'badge-purple',
+  'دولى': 'badge-amber',
+  'ثقافى': 'badge-cyan',
+  'فنى': 'badge-purple',
 };
 
 export default function SchoolsPage() {

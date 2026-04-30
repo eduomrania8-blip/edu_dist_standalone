@@ -17,6 +17,7 @@ export default function TeachersAdminPage() {
   const [search, setSearch] = useState('');
   const [schoolFilter, setSchoolFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
+  const [contractFilter, setContractFilter] = useState('');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,7 +45,8 @@ export default function TeachersAdminPage() {
     const matchSearch = t.name.includes(search) || t.national_id.includes(search) || (t.phone || '').includes(search);
     const matchSchool = schoolFilter ? t.base_school_id === schoolFilter : true;
     const matchSubject = subjectFilter ? t.subject === subjectFilter : true;
-    return matchSearch && matchSchool && matchSubject;
+    const matchContract = contractFilter ? t.contract_type === contractFilter : true;
+    return matchSearch && matchSchool && matchSubject && matchContract;
   });
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -111,6 +113,15 @@ export default function TeachersAdminPage() {
           <option value="">كل المواد</option>
           {uniqueSubjects.map(s => <option key={s} value={s!}>{s}</option>)}
         </select>
+        <select className="form-input" style={{ minWidth: 140 }} value={contractFilter} onChange={e => setContractFilter(e.target.value)}>
+          <option value="">كل أنواع التعيين</option>
+          <option value="بالأجر">بالأجر</option>
+          <option value="أساسي">أساسي</option>
+          <option value="بالمعاش">بالمعاش</option>
+        </select>
+        <button className="btn-secondary" onClick={() => window.print()} style={{ minWidth: 100 }}>
+          🖨️ طباعة
+        </button>
         <span style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{filtered.length} معلم</span>
       </div>
 

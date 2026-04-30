@@ -77,7 +77,7 @@ export async function GET() {
         school_code: String(s.code),
         school_name: String(s.name).trim(),
         stage: s.stageName || s.stage || 'ابتدائي',
-        school_type: s.typeName || s.type || 'حكومي',
+        school_type: s.typeName || s.type || 'رسمى',
       }));
 
     const { error: schErr } = await supabase
